@@ -29,7 +29,7 @@ document.getElementById('logout').onclick = async () => {
   }
 };
 
-const frames=['W1','D1','H4','H1','M15'];let current='H1';
+const frames=['W1','D1','H4','H1','M15','M5'];let current='M5';
 const nav=document.getElementById('frames');
 frames.forEach(tf=>{const b=document.createElement('button');b.textContent=tf;b.onclick=()=>{current=tf;refresh()};b.dataset.tf=tf;nav.appendChild(b)});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
