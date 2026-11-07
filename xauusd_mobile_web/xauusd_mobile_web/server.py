@@ -14,7 +14,7 @@ DB=os.getenv('DB_PATH','./market.db')
 TOKEN=os.getenv('INGEST_TOKEN','')
 USER=os.getenv('DASH_USER','admin')
 PASS=os.getenv('DASH_PASSWORD','')
-FRAMES={'M5','M15','H1','H4'}
+FRAMES = {'M1', 'M5', 'M15', 'H1', 'H4', 'D1'}
 
 def db():
     conn=sqlite3.connect(DB,timeout=15)
@@ -129,7 +129,7 @@ class Candle(BaseModel):
     volume:float=0
 class Upload(BaseModel):
     symbol:str=Field(min_length=1,max_length=32)
-    timeframe:Literal['M5','M15','H1','H4']
+timeframe: Literal['M1', 'M5', 'M15', 'H1', 'H4', 'D1']
     candles:list[Candle]=Field(min_length=1,max_length=1000)
 
 @app.get('/',response_class=HTMLResponse)
