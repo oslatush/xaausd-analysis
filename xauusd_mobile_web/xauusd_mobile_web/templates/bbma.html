@@ -403,6 +403,79 @@ function draw(rows) {
     ctx.stroke();
   });
 }
+  // Historical BBMA signal labels
+  const candleIndex = new Map(
+    visible.map((c, i) => [Number(c.ts), i])
+  );
+
+  const groups = new Map();
+
+  lastSignals.forEach(signal => {
+    const index = candleIndex.get(Number(signal.ts));
+    if (index === undefined) return;
+
+    const direction = String(signal.direction || '').toUpperCase();
+    if (direction !== 'BUY' && direction !== 'SELL') return;
+
+    const key = index + ':' + direction;
+
+    if (!groups.has(key)) groups.set(key, []);
+
+    groups.get(key).push(
+      signal.name === 'REENTRY' ? 'RE' : signal.name
+    );
+  });
+
+  ctx.font = 'bold 10px system-ui';
+  ctx.textAlign = 'center';
+
+  groups.forEach((names, key) => {
+    const [indexText, direction] = key.split(':');
+    const i = Number(indexText);
+    const candle = visible[i];
+
+    const label = [...new Set(names)].join('/');
+    const isBuy = direction === 'BUY';
+
+    const xx = x(i);
+    const yy = isBuy
+      ? y(Number(candle.l)) + 18
+      : y(Number(candle.h)) - 18;
+
+    const boxWidth = ctx.measureText(label).width + 12;
+    const boxHeight = 18;
+
+    const bx = Math.max(
+      2,
+      Math.min(w - boxWidth - 2, xx - boxWidth / 2)
+    );
+
+    const by = Math.max(
+      2,
+      Math.min(h - boxHeight - 2, yy - boxHeight / 2)
+    );
+
+    ctx.fillStyle = isBuy ? '#155c47' : '#75313b';
+    ctx.fillRect(bx, by, boxWidth, boxHeight);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, bx + boxWidth / 2, by + 13);
+  });
+
+  ctx.textAlign = 'start';
+```
+
+### 4. Simpan dan tes
+
+Klik **Commit changes**, tunggu Railway **Active**, lalu refresh website.
+
+Perhatikan tulisan di atas grafik:
+
+- `Historical signals: 0` → backend belum mengirim sinyal historis atau tidak mendeteksi sinyal.
+- `Historical signals: 20` → ada 20 sinyal historis; label akan digambar untuk sinyal yang timestamp-nya cocok dengan 90 candle yang terlihat.
+
+**Setelah commit, kasih tahu angka `Historical signals` yang muncul.** Kalau masih 0, kita lanjut periksa `bbma_signals.py`, bukan mengubah grafik lagi.
+
 
 // ==============================
 // SIGNALS
