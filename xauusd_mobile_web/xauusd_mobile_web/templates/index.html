@@ -206,6 +206,25 @@ async function load(){
   }
 }
 
+async function logout() {
+  try {
+    const response = await fetch('/api/logout', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+
+    window.location.replace('/login');
+  } catch (error) {
+    alert('Logout gagal: ' + error.message);
+  }
+}
+
+$('logout').onclick = logout;
+
 $('refresh').onclick=load;
 $('tf').onchange=load;
 window.onresize=()=>draw(last);
