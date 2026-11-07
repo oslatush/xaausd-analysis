@@ -127,10 +127,11 @@ class Candle(BaseModel):
     ts:int=Field(ge=1000000000,le=9999999999)
     o:float;h:float;l:float;c:float
     volume:float=0
+
 class Upload(BaseModel):
-    symbol:str=Field(min_length=1,max_length=32)
-timeframe: Literal['M1', 'M5', 'M15', 'H1', 'H4', 'D1']
-    candles:list[Candle]=Field(min_length=1,max_length=1000)
+    symbol: str = Field(min_length=1, max_length=32)
+    timeframe: Literal['M1', 'M5', 'M15', 'H1', 'H4', 'D1']
+    candles: list[Candle] = Field(min_length=1, max_length=1000)
 
 @app.get('/',response_class=HTMLResponse)
 def home(_:None=Depends(auth)):
