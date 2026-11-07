@@ -17,8 +17,7 @@ PASS = os.getenv('DASH_PASSWORD', '')
 BBMA_USER = os.getenv('BBMA_USER', '')
 BBMA_PASS = os.getenv('BBMA_PASSWORD', '')
 FRAMES = {'M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1'}
-BBMA_FRAMES = {'M15', 'H1', 'H4', 'D1', 'W1'}
-
+BBMA_FRAMES = {'M5', 'M15', 'H1', 'H4', 'D1', 'W1'}
 def db():
     conn = sqlite3.connect(DB, timeout=15)
     conn.execute('PRAGMA journal_mode=WAL')
