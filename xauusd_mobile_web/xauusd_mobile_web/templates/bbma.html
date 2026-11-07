@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XAUUSD BBMA Scanner</title>
+<style>
+:root{color-scheme:dark}body{font-family:system-ui,-apple-system,sans-serif;background:#101827;color:#e7eefb;max-width:880px;margin:0 auto;padding:22px}h1{font-size:1.6rem;margin-bottom:6px}p{color:#aebcd0}button{background:#263b59;color:#fff;border:1px solid #405474;border-radius:9px;padding:10px 16px;cursor:pointer}button.selected{background:#296d96}nav{display:flex;gap:7px;flex-wrap:wrap;margin:20px 0}.card{background:#1b2940;border:1px solid #34435c;border-radius:12px;padding:18px;margin:12px 0}.metric{font-size:1.8rem;font-weight:700}.buy{color:#68e0ac}.sell{color:#ff8c8c}.wait{color:#ffd18b}.small{font-size:.85rem;color:#aebcd0}.signal{border-top:1px solid #34435c;padding:12px 0}.signal:first-child{border-top:0}strong{letter-spacing:.02em}
+</style></head><body>
+<h1>BBMA Oma Ally · XAUUSD</h1><p>Scanner 5 kategori · Closed candles · Tidak melakukan order</p>
+<button id="logout" type="button">Logout</button><nav id="frames"></nav>
+<div class="card"><div class="small">Sinyal re-entry saat ini</div><div id="headline" class="metric">Memuat…</div><div id="note"></div><div id="timestamp" class="small"></div></div>
+<div class="card"><h3>5 kategori sinyal</h3><div id="signals"></div></div>
+<div class="card"><h3>Indikator</h3><div id="indicators" class="small"></div></div>
+<p class="small">Aturan pendeteksi masih prototipe dan harus divalidasi pada chart BBMA. Sinyal bukan rekomendasi trading.</p>
+<script>
+document.getElementById('logout').onclick=async()=>{await fetch('/logout',{method:'POST'});location.replace('/login')};
+const frames=['W1','D1','H4','H1','M15'];let current='H1';
+const nav=document.getElementById('frames');
+frames.forEach(tf=>{const b=document.createElement('button');b.textContent=tf;b.onclick=()=>{current=tf;refresh()};b.dataset.tf=tf;nav.appendChild(b)});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function refresh(){
+  nav.querySelectorAll('button').forEach(b=>b.classList.toggle('selected',b.dataset.tf===current));
+  const tf=current;
+  try{
+    const r=await fetch('/api/bbma/market?tf='+encodeURIComponent(tf),{cache:'no-store'});
+    if(r.status===401){location.replace('/login');return}if(!r.ok)throw Error('HTTP '+r.status);
+    const data=await r.json();if(tf!==current)return;
+    const a=data.analysis||{};
+    document.getElementById('headline').textContent=a.signal||'WAIT';
+    document.getElementById('headline').className='metric '+((a.signal||'WAIT').toLowerCase());
+    document.getElementById('note').textContent=a.reason||a.note||'';
+    document.getElementById('timestamp').textContent='Candle terakhir (UTC): '+(data.last_candle_utc||'Belum ada data');
+    const names=['EXTREME','MHV','CSAK','CSM','REENTRY'];
+    document.getElementById('signals').innerHTML=names.map(name=>{
+      const matches=(a.detected||[]).filter(x=>x.name===name);
+      return '<div class="signal"><strong>'+name+'</strong> · '+(matches.length?matches.map(x=>'<span class="'+esc(x.direction.toLowerCase())+'">'+esc(x.direction)+'</span> — '+esc(x.reason)).join('; '):'Tidak terdeteksi pada candle terakhir')+'</div>';
+    }).join('');
+    document.getElementById('indicators').innerHTML=Object.entries(a.indicators||{}).map(([k,v])=>'<div>'+esc(k)+': '+esc(v)+'</div>').join('')||'Belum cukup data';
+  }catch(e){if(tf===current){document.getElementById('headline').textContent='Error';document.getElementById('note').textContent=e.message}}
+}
+refresh();setInterval(refresh,60000);
+</script></body></html>
