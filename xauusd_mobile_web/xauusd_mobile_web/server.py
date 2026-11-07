@@ -79,11 +79,19 @@ def login(body: LoginPayload):
     response.set_cookie('xau_session', make_session('ema' if ema_ok else 'bbma'), max_age=SESSION_TTL, httponly=True, secure=True, samesite='lax', path='/')
     return response
 
-@app.post('/logout')
+
+@app.post('/api/logout')
 def logout():
     response = JSONResponse({'ok': True})
-    response.delete_cookie('xau_session', path='/')
+    response.delete_cookie(
+        'xau_session',
+        path='/',
+        secure=True,
+        httponly=True,
+        samesite='lax'
+    )
     return response
+
 
 def ema(a, n):
     out=[]; value=None; k=2/(n+1)
