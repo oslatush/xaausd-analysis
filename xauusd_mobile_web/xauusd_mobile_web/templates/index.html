@@ -1,12 +1,213 @@
-<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XAUUSD Analysis</title><style>
-:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b1220;color:#e8eef9}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:18px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{font-size:22px;margin:0}p{color:#9daec8}select,button{background:#19283f;color:#fff;border:1px solid #354862;border-radius:9px;padding:11px;font-size:14px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.card,.panel{background:#111d30;border:1px solid #293950;border-radius:14px;padding:16px}.muted{color:#91a5c1;font-size:12px}.value{font-size:22px;font-weight:700;margin-top:6px}.green{color:#46d8a0}.red{color:#ff7d87}.yellow{color:#f6c76b}.chart{width:100%;height:350px;display:block}.indicators{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.metric{padding:12px;background:#19283e;border-radius:9px}.metric strong{display:block;margin-top:6px}.status{font-weight:700}.foot{font-size:12px;line-height:1.5}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}@media(max-width:700px){.cards,.indicators{grid-template-columns:repeat(2,1fr)}.chart{height:270px}.wrap{padding:12px}.value{font-size:18px}} </style></head><body><main class="wrap"><header><div><h1>📈 XAUUSD Analysis</h1><p>MT5 market data · Analysis only · No auto trading</p></div><div><select id="tf"><option>M5</option><option>M15</option><option>H1</option><option>H4</option></select> <button id="refresh">Refresh</button></div></header>
-<div class="cards"><div class="card"><div class="muted">Last close</div><div class="value" id="price">—</div></div><div class="card"><div class="muted">Trend</div><div class="value" id="trend">—</div></div><div class="card"><div class="muted">Analysis</div><div class="value" id="signal">—</div></div><div class="card"><div class="muted">ADX 14</div><div class="value" id="adx">—</div></div></div>
-<div class="panel"><div class="row"><strong>Historical Candles</strong><span class="muted" id="updated">Waiting for MT5 bridge...</span></div><canvas id="chart" class="chart"></canvas><div class="muted">Green = bullish candle · Red = bearish candle · Blue = EMA20 · Orange = EMA50</div></div>
-<div class="indicators" id="metrics"></div><div class="panel"><strong>Interpretasi</strong><p id="reason">Belum ada data. Jalankan MT5 bridge untuk mengirim candle.</p><p class="foot">Analisis berbasis aturan EMA20/50, ADX14 dan RSI14; bukan rekomendasi investasi atau jaminan profit. Support/resistance menggunakan high/low 20 candle, bukan level yang terkonfirmasi. Data menggunakan candle yang sudah selesai, sehingga tidak tick-by-tick live. Pastikan waktu pembaruan data sebelum mengambil keputusan.</p></div></main>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XAUUSD EMA Analysis</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b1220;color:#e8eef9}
+*{box-sizing:border-box}
+body{margin:0}
+.wrap{max-width:1100px;margin:auto;padding:18px}
+header,.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+p{color:#9daec8}
+select,button{background:#19283f;color:white;border:1px solid #354862;border-radius:9px;padding:11px;font-size:14px}
+.cards,.indicators{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.card,.panel{background:#111d30;border:1px solid #293950;border-radius:14px;padding:16px}
+.muted{color:#91a5c1;font-size:12px}
+.value{font-size:22px;font-weight:700;margin-top:6px}
+.green{color:#46d8a0}
+.red{color:#ff7d87}
+.yellow{color:#f6c76b}
+.chart{width:100%;height:350px;display:block}
+.metric{padding:12px;background:#19283e;border-radius:9px}
+.metric strong{display:block;margin-top:6px}
+.foot{font-size:12px;line-height:1.6}
+@media(max-width:700px){
+.cards,.indicators{grid-template-columns:repeat(2,1fr)}
+.chart{height:270px}
+.wrap{padding:12px}
+.value{font-size:18px}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header>
+<div>
+<h1>📈 XAUUSD EMA Analysis</h1>
+<p>MT5 market data · EMA crossover · Analysis only</p>
+</div>
+<div>
+<select id="tf">
+<option>M1</option>
+<option selected>M5</option>
+<option>M15</option>
+<option>H1</option>
+<option>H4</option>
+<option>D1</option>
+</select>
+<button id="refresh">Refresh</button>
+</div>
+</header>
+
+<div class="cards">
+<div class="card"><div class="muted">Last close</div><div class="value" id="price">—</div></div>
+<div class="card"><div class="muted">Trend EMA50</div><div class="value" id="trend">—</div></div>
+<div class="card"><div class="muted">Signal</div><div class="value" id="signal">—</div></div>
+<div class="card"><div class="muted">Timeframe</div><div class="value" id="timeframe">M5</div></div>
+</div>
+
+<div class="panel">
+<div class="row">
+<strong>Historical Candles</strong>
+<span class="muted" id="updated">Waiting for MT5 bridge...</span>
+</div>
+<canvas id="chart" class="chart"></canvas>
+<p class="muted">Green candles = bullish · Red candles = bearish</p>
+<div class="muted">
+<span style="color:#46d8a0">● EMA7 Close</span> ·
+<span style="color:#f6bd60">● EMA10 Open</span> ·
+<span style="color:#58a6ff">● EMA50 Close</span>
+</div>
+</div>
+
+<div class="indicators" id="metrics"></div>
+
+<div class="panel">
+<strong>Interpretasi</strong>
+<p id="reason">Menunggu data MT5.</p>
+<p class="foot">
+BUY: EMA7 Close crossover ke atas EMA10 Open, dengan harga Close di atas EMA50.
+SELL: EMA7 crossover ke bawah EMA10, dengan harga Close di bawah EMA50.
+Sinyal hanya menggunakan candle selesai dan bukan jaminan profit.
+</p>
+</div>
+</main>
+
 <script>
-const $=id=>document.getElementById(id), fmt=v=>v==null?'—':Number(v).toLocaleString('en-US',{maximumFractionDigits:3});let last=[];
-function ema(arr,n){let k=2/(n+1),e=null;return arr.map(v=>(e=e==null?v:e+k*(v-e)))}
-function draw(rows){const canvas=$('chart'),ctx=canvas.getContext('2d'),w=canvas.clientWidth,h=canvas.clientHeight,dpr=window.devicePixelRatio||1;canvas.width=w*dpr;canvas.height=h*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);ctx.fillStyle='#111d30';ctx.fillRect(0,0,w,h);if(!rows.length){ctx.fillStyle='#91a5c1';ctx.fillText('No candles received yet',20,40);return}const a=rows.slice(-90),top=Math.max(...a.map(x=>x.h)),bottom=Math.min(...a.map(x=>x.l)),span=Math.max(.0001,top-bottom),left=12,right=58,pad=18,inner=w-left-right,usable=h-2*pad,y=v=>pad+(top-v)/span*usable,step=inner/a.length;ctx.strokeStyle='#25364d';ctx.lineWidth=1;ctx.fillStyle='#9aabc1';ctx.font='11px system-ui';for(let i=0;i<5;i++){let val=bottom+span*i/4,yy=y(val);ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(w-right+5,yy);ctx.stroke();ctx.fillText(val.toFixed(2),w-right+8,yy+3)}a.forEach((c,i)=>{let x=left+(i+.5)*step;ctx.strokeStyle=ctx.fillStyle=c.c>=c.o?'#45d7a0':'#ff6b78';ctx.beginPath();ctx.moveTo(x,y(c.h));ctx.lineTo(x,y(c.l));ctx.stroke();ctx.fillRect(x-Math.max(1,step*.3),Math.min(y(c.o),y(c.c)),Math.max(2,step*.6),Math.max(1,Math.abs(y(c.o)-y(c.c))))});const close=rows.map(x=>x.c);[[20,'#58a6ff'],[50,'#f6bd60']].forEach(([n,color])=>{const series=ema(close,n).slice(-a.length);ctx.strokeStyle=color;ctx.lineWidth=1.7;ctx.beginPath();series.forEach((v,i)=>{const x=left+(i+.5)*step;i?ctx.lineTo(x,y(v)):ctx.moveTo(x,y(v))});ctx.stroke()})}
-async function load(){try{let response=await fetch('/api/market?tf='+encodeURIComponent($('tf').value),{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);let data=await response.json(),a=data.analysis;last=data.candles;$('price').textContent=fmt(a.price);$('trend').textContent=a.state||'—';$('signal').textContent=a.signal||'—';$('adx').textContent=fmt(a.adx14);$('trend').className='value '+(a.state==='BULLISH'?'green':a.state==='BEARISH'?'red':'yellow');$('signal').className='value '+(a.signal==='WATCH BUY'?'green':a.signal==='WATCH SELL'?'red':'yellow');$('updated').textContent=data.last_candle_utc?'Last completed candle: '+new Date(data.last_candle_utc).toLocaleString():'No data yet';$('reason').textContent=a.reason||'—';const keys=[['EMA 20',a.ema20],['EMA 50',a.ema50],['RSI 14',a.rsi14],['BB Upper',a.bb_upper],['BB Middle',a.bb_middle],['BB Lower',a.bb_lower],['Support (20)',a.support20],['Resistance (20)',a.resistance20]];$('metrics').innerHTML=keys.map(([k,v])=>'<div class="metric"><span class="muted">'+k+'</span><strong>'+fmt(v)+'</strong></div>').join('');draw(last)}catch(e){$('updated').textContent='Connection error: '+e.message}}
-$('refresh').onclick=load;$('tf').onchange=load;window.onresize=()=>draw(last);load();setInterval(load,60000);
-</script></body></html>
+const $=id=>document.getElementById(id);
+const fmt=v=>v==null?'—':Number(v).toLocaleString('en-US',{maximumFractionDigits:3});
+let last=[];
+
+function ema(arr,n){
+  let k=2/(n+1),e=null;
+  return arr.map(v=>(e=e==null?v:e+k*(v-e)));
+}
+
+function draw(rows){
+  const canvas=$('chart'),ctx=canvas.getContext('2d');
+  const w=canvas.clientWidth,h=canvas.clientHeight,dpr=window.devicePixelRatio||1;
+  if(!w||!h)return;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#111d30';ctx.fillRect(0,0,w,h);
+  if(!rows.length){
+    ctx.fillStyle='#91a5c1';
+    ctx.fillText('No candles received yet',20,40);
+    return;
+  }
+
+  const a=rows.slice(-90);
+  const closes=rows.map(x=>x.c),opens=rows.map(x=>x.o);
+  const lines=[
+    [ema(closes,7).slice(-a.length),'#46d8a0'],
+    [ema(opens,10).slice(-a.length),'#f6bd60'],
+    [ema(closes,50).slice(-a.length),'#58a6ff']
+  ];
+  const values=[
+    ...a.flatMap(x=>[x.h,x.l]),
+    ...lines.flatMap(x=>x[0])
+  ];
+  const top=Math.max(...values),bottom=Math.min(...values);
+  const span=Math.max(.0001,top-bottom);
+  const left=12,right=58,pad=18;
+  const inner=w-left-right,usable=h-2*pad;
+  const y=v=>pad+(top-v)/span*usable;
+  const step=inner/a.length;
+
+  ctx.strokeStyle='#25364d';
+  ctx.lineWidth=1;
+  ctx.fillStyle='#9aabc1';
+  ctx.font='11px system-ui';
+
+  for(let i=0;i<5;i++){
+    let val=bottom+span*i/4,yy=y(val);
+    ctx.beginPath();ctx.moveTo(left,yy);
+    ctx.lineTo(w-right+5,yy);ctx.stroke();
+    ctx.fillText(val.toFixed(2),w-right+8,yy+3);
+  }
+
+  a.forEach((c,i)=>{
+    const x=left+(i+.5)*step;
+    ctx.strokeStyle=ctx.fillStyle=c.c>=c.o?'#45d7a0':'#ff6b78';
+    ctx.beginPath();
+    ctx.moveTo(x,y(c.h));ctx.lineTo(x,y(c.l));ctx.stroke();
+    ctx.fillRect(
+      x-Math.max(1,step*.3),
+      Math.min(y(c.o),y(c.c)),
+      Math.max(2,step*.6),
+      Math.max(1,Math.abs(y(c.o)-y(c.c)))
+    );
+  });
+
+  lines.forEach(([series,color])=>{
+    ctx.strokeStyle=color;ctx.lineWidth=1.7;
+    ctx.beginPath();
+    series.forEach((v,i)=>{
+      const x=left+(i+.5)*step;
+      if(i)ctx.lineTo(x,y(v));else ctx.moveTo(x,y(v));
+    });
+    ctx.stroke();
+  });
+}
+
+async function load(){
+  try{
+    const tf=$('tf').value;
+    const response=await fetch('/api/market?tf='+encodeURIComponent(tf),{cache:'no-store'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const data=await response.json(),a=data.analysis;
+    last=data.candles;
+
+    $('price').textContent=fmt(a.price);
+    $('trend').textContent=a.state||'—';
+    $('signal').textContent=a.signal||'—';
+    $('timeframe').textContent=tf;
+    $('trend').className='value '+(a.state==='BULLISH'?'green':a.state==='BEARISH'?'red':'yellow');
+    $('signal').className='value '+(a.signal==='BUY'?'green':a.signal==='SELL'?'red':'yellow');
+    $('updated').textContent=data.last_candle_utc
+      ?'Last completed candle: '+new Date(data.last_candle_utc).toLocaleString()
+      :'No data yet';
+
+    $('reason').textContent=a.reason||'—';
+
+    const keys=[
+      ['EMA7 Close',a.ema7],
+      ['EMA10 Open',a.ema10],
+      ['EMA50 Close',a.ema50],
+      ['Support (20)',a.support20],
+      ['Resistance (20)',a.resistance20]
+    ];
+    $('metrics').innerHTML=keys.map(([k,v])=>
+      '<div class="metric"><span class="muted">'+k+
+      '</span><strong>'+fmt(v)+'</strong></div>'
+    ).join('');
+
+    draw(last);
+  }catch(e){
+    $('updated').textContent='Connection error: '+e.message;
+  }
+}
+
+$('refresh').onclick=load;
+$('tf').onchange=load;
+window.onresize=()=>draw(last);
+load();
+setInterval(load,60000);
+</script>
+</body>
+</html>
