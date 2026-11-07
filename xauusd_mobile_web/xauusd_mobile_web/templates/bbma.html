@@ -11,7 +11,24 @@
 <div class="card"><h3>Indikator</h3><div id="indicators" class="small"></div></div>
 <p class="small">Aturan pendeteksi masih prototipe dan harus divalidasi pada chart BBMA. Sinyal bukan rekomendasi trading.</p>
 <script>
-document.getElementById('logout').onclick=async()=>{await fetch('/logout',{method:'POST'});location.replace('/login')};
+
+document.getElementById('logout').onclick = async () => {
+  try {
+    const response = await fetch('/api/logout', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+
+    window.location.replace('/login');
+  } catch (error) {
+    alert('Logout gagal: ' + error.message);
+  }
+};
+
 const frames=['W1','D1','H4','H1','M15'];let current='H1';
 const nav=document.getElementById('frames');
 frames.forEach(tf=>{const b=document.createElement('button');b.textContent=tf;b.onclick=()=>{current=tf;refresh()};b.dataset.tf=tf;nav.appendChild(b)});
