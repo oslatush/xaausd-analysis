@@ -62,21 +62,67 @@ def adx(rows,n=14):
     a=sum(dx[:n])/n
     for d in dx[n:]:a=(a*(n-1)+d)/n
     return round(a,2)
-
 def analyze(rows):
-    if len(rows)<50:return {'state':'INSUFFICIENT_DATA','reason':'Minimal 50 candle diperlukan untuk analisis','signal':'WAIT'}
-    c=[x['c'] for x in rows]; e20=ema(c,20)[-1];e50=ema(c,50)[-1]
-    bb_mid=statistics.mean(c[-20:]);sd=statistics.pstdev(c[-20:]);upper=bb_mid+2*sd;lower=bb_mid-2*sd
-    strength=adx(rows);momentum=rsi(c);price=c[-1]
-    trend='BULLISH' if price>e20>e50 else 'BEARISH' if price<e20<e50 else 'SIDEWAYS'
-    signal='WAIT';reason='Belum ada keselarasan tren dan momentum.'
-    if strength is not None and strength>=20 and momentum is not None:
-        if trend=='BULLISH' and 50<=momentum<=70:
-            signal='WATCH BUY';reason='Harga di atas EMA20/EMA50, ADX >= 20, RSI 50–70.'
-        elif trend=='BEARISH' and 30<=momentum<=50:
-            signal='WATCH SELL';reason='Harga di bawah EMA20/EMA50, ADX >= 20, RSI 30–50.'
-    return {'state':trend,'signal':signal,'reason':reason,'price':round(price,5),'ema20':round(e20,5),'ema50':round(e50,5),'bb_upper':round(upper,5),'bb_middle':round(bb_mid,5),'bb_lower':round(lower,5),'rsi14':round(momentum,2) if momentum is not None else None,'adx14':strength,'support20':round(min(x['l'] for x in rows[-20:]),5),'resistance20':round(max(x['h'] for x in rows[-20:]),5)}
+    if len(rows) < 50:
+        return {
+            'state': 'INSUFFICIENT_DATA',
+            'signal': 'WAIT',
+            'reason': 'Minimal 50 candle diperlukan untuk analisis.'
+        }
 
+    closes = [x['c'] for x in rows]
+    opens = [x['o'] for x in rows]
+
+    ema7 = ema(closes, 7)
+    ema10 = ema(opens, 10)
+    ema50 = ema(closes, 50)
+
+    price = closes[-1]
+
+    cross_up = (
+        ema7[-2] <= ema10[-2]
+        and ema7[-1] > ema10[-1]
+    )
+
+    cross_down = (
+        ema7[-2] >= ema10[-2]
+        and ema7[-1] < ema10[-1]
+    )
+
+    trend = (
+        'BULLISH' if price > ema50[-1]
+        else 'BEARISH' if price < ema50[-1]
+        else 'SIDEWAYS'
+    )
+
+    signal = 'WAIT'
+    reason = 'Tidak ada crossover baru.'
+
+    if cross_up:
+        if price > ema50[-1]:
+            signal = 'BUY'
+            reason = 'EMA7 Close cross ke atas EMA10 Open, harga di atas EMA50.'
+        else:
+            reason = 'Cross BUY terjadi, tetapi harga tidak di atas EMA50.'
+
+    elif cross_down:
+        if price < ema50[-1]:
+            signal = 'SELL'
+            reason = 'EMA7 Close cross ke bawah EMA10 Open, harga di bawah EMA50.'
+        else:
+            reason = 'Cross SELL terjadi, tetapi harga tidak di bawah EMA50.'
+
+    return {
+        'state': trend,
+        'signal': signal,
+        'reason': reason,
+        'price': round(price, 5),
+        'ema7': round(ema7[-1], 5),
+        'ema10': round(ema10[-1], 5),
+        'ema50': round(ema50[-1], 5),
+        'support20': round(min(x['l'] for x in rows[-20:]), 5),
+        'resistance20': round(max(x['h'] for x in rows[-20:]), 5)
+    }
 class Candle(BaseModel):
     ts:int=Field(ge=1000000000,le=9999999999)
     o:float;h:float;l:float;c:float
