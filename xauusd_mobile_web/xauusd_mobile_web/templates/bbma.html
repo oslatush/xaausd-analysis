@@ -516,9 +516,18 @@ async function load() {
 
     $('reason').textContent=analysis.reason||analysis.note||'—';
 
-    renderSignals(analysis);
-    renderIndicators(analysis);
-    draw(last);
+renderSignals(analysis);
+renderIndicators(analysis);
+
+lastSignals = Array.isArray(analysis.history)
+  ? analysis.history
+  : [];
+
+$('updated').textContent =
+  'Candles: ' + candles.length +
+  ' | Historical signals: ' + lastSignals.length;
+
+draw(last);
 
   }catch(error){
     if(id!==requestId)return;
