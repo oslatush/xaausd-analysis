@@ -31,9 +31,59 @@ select,button{background:#19283f;color:white;border:1px solid #354862;border-rad
 .wrap{padding:12px}
 .value{font-size:18px}
 }
+  #menuBtn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -260px;
+  width: 240px;
+  height: 100vh;
+  background: #111827;
+  color: white;
+  padding: 70px 15px 20px;
+  box-sizing: border-box;
+  z-index: 1000;
+  transition: left 0.25s;
+}
+
+.sidebar.open {
+  left: 0;
+}
+
+.sidebar a,
+.sidebar button {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 8px;
+  color: white;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 15px;
+}
 </style>
 </head>
-<body>
+<body><button id="menuBtn" onclick="toggleSidebar()">☰</button>
+
+<div id="sidebar" class="sidebar">
+  <h3>XAUUSD Analysis</h3>
+
+  <a href="/">📈 EMA Analysis</a>
+  <a href="/bbma">📊 BBMA Scanner</a>
+
+  <button onclick="logout()">Logout</button>
+</div>
 <main class="wrap">
 <header>
 <div>
@@ -230,6 +280,24 @@ $('tf').onchange=load;
 window.onresize=()=>draw(last);
 load();
 setInterval(load,60000);
+</script>
+  <script>
+function toggleSidebar() {
+  document.getElementById('sidebar')
+    .classList.toggle('open');
+}
+
+async function logout() {
+  const response = await fetch('/api/logout', {
+    method: 'POST'
+  });
+
+  if (response.ok) {
+    window.location.href = '/login';
+  } else {
+    alert('Logout gagal');
+  }
+}
 </script>
 </body>
 </html>
