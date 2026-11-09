@@ -5,7 +5,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>XAUUSD BBMA Scanner</title>
-
+/* Telegram notification */
+.telegram-options {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:14px 0;
+}
+.telegram-option {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background:#19283f;
+  border:1px solid #354862;
+  border-radius:9px;
+  padding:10px 13px;
+  cursor:pointer;
+  font-size:14px;
+}
+.telegram-option input {
+  width:17px;
+  height:17px;
+  accent-color:#46d8a0;
+}
+.telegram-status {
+  margin-top:12px;
+  min-height:20px;
+  color:#91a5c1;
+  font-size:13px;
+}
+.telegram-save:disabled {
+  opacity:.5;
+  cursor:wait;
+}
 <style>
 :root {
   color-scheme: dark;
