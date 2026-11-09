@@ -5,100 +5,237 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>XAUUSD BBMA Scanner</title>
+
 <style>
 :root {
-  color-scheme:dark;
-  font-family:system-ui,-apple-system,Segoe UI,sans-serif;
-  background:#0b1220;
-  color:#e8eef9;
+  color-scheme: dark;
+  font-family: system-ui,-apple-system,Segoe UI,sans-serif;
+  background: #0b1220;
+  color: #e8eef9;
 }
-* {box-sizing:border-box}
-body {margin:0}
-.wrap {max-width:1100px;margin:auto;padding:18px}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.wrap {
+  max-width: 1100px;
+  margin: auto;
+  padding: 76px 18px 18px;
+}
+
 header,.row {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  flex-wrap:wrap;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-h1 {font-size:22px;margin:0}
-h3 {margin-top:0}
-p {color:#9daec8}
+
+h1 { font-size: 22px; margin: 0; }
+h3 { margin-top: 0; }
+p { color: #9daec8; }
+
 select,button {
-  background:#19283f;
-  color:white;
-  border:1px solid #354862;
-  border-radius:9px;
-  padding:11px;
-  font-size:14px;
-  cursor:pointer;
+  background: #19283f;
+  color: white;
+  border: 1px solid #354862;
+  border-radius: 9px;
+  padding: 11px;
+  font-size: 14px;
+  cursor: pointer;
 }
+
 .cards {
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:12px;
-  margin:18px 0;
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 12px;
+  margin: 18px 0;
 }
+
 .card,.panel {
-  background:#111d30;
-  border:1px solid #293950;
-  border-radius:14px;
-  padding:16px;
-  margin:12px 0;
+  background: #111d30;
+  border: 1px solid #293950;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 12px 0;
 }
-.muted {color:#91a5c1;font-size:12px}
-.value {font-size:22px;font-weight:700;margin-top:6px}
-.green,.buy {color:#46d8a0}
-.red,.sell {color:#ff7d87}
-.yellow,.wait {color:#f6c76b}
-.chart {width:100%;height:370px;display:block}
+
+.muted { color: #91a5c1; font-size: 12px; }
+.value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.green,.buy { color: #46d8a0; }
+.red,.sell { color: #ff7d87; }
+.yellow,.wait { color: #f6c76b; }
+
+.chart {
+  width: 100%;
+  height: 370px;
+  display: block;
+}
+
 .legend {
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-  margin-top:12px;
-  font-size:12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 12px;
 }
-.legend span {white-space:nowrap}
+
+.legend span { white-space: nowrap; }
+
 .signal {
-  padding:13px 0;
-  border-bottom:1px solid #293950;
+  padding: 13px 0;
+  border-bottom: 1px solid #293950;
 }
-.signal:last-child {border-bottom:0}
+
+.signal:last-child { border-bottom: 0; }
+
 .metric {
-  padding:12px;
-  background:#19283e;
-  border-radius:9px;
+  padding: 12px;
+  background: #19283e;
+  border-radius: 9px;
 }
+
 .indicators {
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 10px;
 }
+
 .metric strong {
-  display:block;
-  margin-top:6px;
+  display: block;
+  margin-top: 6px;
 }
-.foot {font-size:12px;line-height:1.6}
+
+.foot { font-size: 12px; line-height: 1.6; }
+
+/* SIDEBAR */
+
+#menuBtn {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 1002;
+  padding: 9px 13px;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  height: 100dvh;
+  background: #111827;
+  border-right: 1px solid #293950;
+  padding: 70px 15px 20px;
+  z-index: 1001;
+  transform: translateX(-100%);
+  transition: transform .25s ease;
+  overflow-y: auto;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar h3 {
+  margin: 0 0 22px;
+  font-size: 17px;
+}
+
+.sidebar a,
+.sidebar button {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 8px;
+  color: white;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.sidebar a:hover,
+.sidebar button:hover {
+  background: #263750;
+}
+
+.sidebar a.active {
+  background: #263d5d;
+  color: #7db8ff;
+}
+
+.sidebar .logout-btn {
+  margin-top: 25px;
+  color: #ff9aa3;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 1000;
+  display: none;
+}
+
+.sidebar-overlay.open {
+  display: block;
+}
+
 @media(max-width:700px) {
-  .cards {grid-template-columns:repeat(2,1fr)}
-  .indicators {grid-template-columns:repeat(2,1fr)}
-  .chart {height:290px}
-  .wrap {padding:12px}
-  .value {font-size:18px}
+  .cards { grid-template-columns: repeat(2,1fr); }
+  .indicators { grid-template-columns: repeat(2,1fr); }
+  .chart { height: 290px; }
+  .wrap { padding: 76px 12px 12px; }
+  .value { font-size: 18px; }
 }
 </style>
 </head>
 
 <body>
+
+<button
+  id="menuBtn"
+  type="button"
+  aria-label="Buka menu"
+  aria-controls="sidebar"
+  aria-expanded="false"
+  onclick="toggleSidebar()"
+>☰</button>
+
+<div
+  id="sidebarOverlay"
+  class="sidebar-overlay"
+  onclick="closeSidebar()"
+></div>
+
+<nav id="sidebar" class="sidebar" aria-label="Dashboard navigation">
+  <h3>XAUUSD Analysis</h3>
+
+  <a href="/">📈 EMA Analysis</a>
+  <a href="/bbma" class="active" aria-current="page">
+    📊 BBMA Scanner
+  </a>
+
+  <button
+    type="button"
+    class="logout-btn"
+    onclick="logout()"
+  >🚪 Logout</button>
+</nav>
+
 <main class="wrap">
 
 <header>
   <div>
-    <h1>📈 XAUUSD BBMA Scanner</h1>
+    <h1>📊 XAUUSD BBMA Scanner</h1>
     <p>BBMA Oma Ally · Closed candles · Analysis only</p>
   </div>
+
   <div class="row">
     <select id="tf">
       <option value="M5" selected>M5</option>
@@ -108,8 +245,8 @@ select,button {
       <option value="D1">D1</option>
       <option value="W1">W1</option>
     </select>
-    <button id="refresh">Refresh</button>
-    <button id="logout" type="button">Logout</button>
+
+    <button id="refresh" type="button">Refresh</button>
   </div>
 </header>
 
@@ -118,14 +255,17 @@ select,button {
     <div class="muted">Last Close</div>
     <div class="value" id="price">—</div>
   </div>
+
   <div class="card">
     <div class="muted">BBMA Signal</div>
     <div class="value" id="headline">—</div>
   </div>
+
   <div class="card">
     <div class="muted">Timeframe</div>
     <div class="value" id="timeframe">M5</div>
   </div>
+
   <div class="card">
     <div class="muted">Last Candle</div>
     <div class="value" id="lastTime" style="font-size:14px">—</div>
@@ -135,7 +275,9 @@ select,button {
 <div class="panel">
   <div class="row">
     <strong>BBMA Candlestick Chart</strong>
-    <span class="muted" id="updated">Waiting for MT5 bridge...</span>
+    <span class="muted" id="updated">
+      Waiting for MT5 bridge...
+    </span>
   </div>
 
   <canvas id="chart" class="chart"></canvas>
@@ -197,8 +339,34 @@ const esc = s =>
   }[c]));
 
 let last = [];
-let lastSignals=[];
+let lastSignals = [];
 let requestId = 0;
+
+// ==============================
+// SIDEBAR
+// ==============================
+
+function setSidebar(open) {
+  $('sidebar').classList.toggle('open',open);
+  $('sidebarOverlay').classList.toggle('open',open);
+  $('menuBtn').setAttribute('aria-expanded',String(open));
+  $('menuBtn').setAttribute(
+    'aria-label',
+    open ? 'Tutup menu' : 'Buka menu'
+  );
+}
+
+function toggleSidebar() {
+  setSidebar(!$('sidebar').classList.contains('open'));
+}
+
+function closeSidebar() {
+  setSidebar(false);
+}
+
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape')closeSidebar();
+});
 
 // ==============================
 // INDICATOR CALCULATIONS
@@ -207,8 +375,10 @@ let requestId = 0;
 function sma(arr,n) {
   return arr.map((_,i)=>{
     if(i<n-1)return null;
+
     let sum=0;
     for(let j=i-n+1;j<=i;j++)sum+=arr[j];
+
     return sum/n;
   });
 }
@@ -216,6 +386,7 @@ function sma(arr,n) {
 function ema(arr,n) {
   let value=null;
   const k=2/(n+1);
+
   return arr.map(v=>{
     value=value===null?v:value+k*(v-value);
     return value;
@@ -224,12 +395,15 @@ function ema(arr,n) {
 
 function lwma(arr,n) {
   const denominator=n*(n+1)/2;
+
   return arr.map((_,i)=>{
     if(i<n-1)return null;
+
     let sum=0;
     for(let j=0;j<n;j++){
       sum+=arr[i-n+1+j]*(j+1);
     }
+
     return sum/denominator;
   });
 }
@@ -247,11 +421,13 @@ function bollinger(closes,n=20,mult=2) {
     }
 
     let variance=0;
+
     for(let j=i-n+1;j<=i;j++){
       variance+=(closes[j]-middle[i])**2;
     }
 
     const std=Math.sqrt(variance/n);
+
     upper.push(middle[i]+mult*std);
     lower.push(middle[i]-mult*std);
   });
@@ -275,6 +451,7 @@ function draw(rows) {
 
   canvas.width=Math.round(w*dpr);
   canvas.height=Math.round(h*dpr);
+
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
 
@@ -319,6 +496,7 @@ function draw(rows) {
   const top=Math.max(...values);
   const bottom=Math.min(...values);
   const margin=Math.max((top-bottom)*0.04,0.01);
+
   const maxPrice=top+margin;
   const minPrice=bottom-margin;
   const span=Math.max(0.0001,maxPrice-minPrice);
@@ -326,6 +504,7 @@ function draw(rows) {
   const left=12;
   const right=65;
   const pad=22;
+
   const inner=Math.max(1,w-left-right);
   const usable=Math.max(1,h-2*pad);
   const step=inner/count;
@@ -365,8 +544,16 @@ function draw(rows) {
     ctx.lineTo(xx,y(Number(c.l)));
     ctx.stroke();
 
-    const bodyTop=Math.min(y(Number(c.o)),y(Number(c.c)));
-    const bodyHeight=Math.max(1,Math.abs(y(Number(c.o))-y(Number(c.c))));
+    const bodyTop=Math.min(
+      y(Number(c.o)),
+      y(Number(c.c))
+    );
+
+    const bodyHeight=Math.max(
+      1,
+      Math.abs(y(Number(c.o))-y(Number(c.c)))
+    );
+
     const bodyWidth=Math.max(2,Math.min(12,step*0.6));
 
     ctx.fillRect(
@@ -405,66 +592,69 @@ function draw(rows) {
   });
 
   // Historical BBMA signal labels
-  const candleIndex = new Map(
-    visible.map((c, i) => [Number(c.ts), i])
+  const candleIndex=new Map(
+    visible.map((c,i)=>[Number(c.ts),i])
   );
 
-  const groups = new Map();
+  const groups=new Map();
 
-  lastSignals.forEach(signal => {
-    const index = candleIndex.get(Number(signal.ts));
-    if (index === undefined) return;
+  lastSignals.forEach(signal=>{
+    const index=candleIndex.get(Number(signal.ts));
+    if(index===undefined)return;
 
-    const direction = String(signal.direction || '').toUpperCase();
-    if (direction !== 'BUY' && direction !== 'SELL') return;
+    const direction=String(
+      signal.direction||''
+    ).toUpperCase();
 
-    const key = index + ':' + direction;
+    if(direction!=='BUY'&&direction!=='SELL')return;
 
-    if (!groups.has(key)) groups.set(key, []);
+    const key=index+':'+direction;
+
+    if(!groups.has(key))groups.set(key,[]);
 
     groups.get(key).push(
-      signal.name === 'REENTRY' ? 'RE' : signal.name
+      signal.name==='REENTRY'?'RE':signal.name
     );
   });
 
-  ctx.font = 'bold 10px system-ui';
-  ctx.textAlign = 'center';
+  ctx.font='bold 10px system-ui';
+  ctx.textAlign='center';
 
-  groups.forEach((names, key) => {
-    const [indexText, direction] = key.split(':');
-    const i = Number(indexText);
-    const candle = visible[i];
+  groups.forEach((names,key)=>{
+    const [indexText,direction]=key.split(':');
+    const i=Number(indexText);
+    const candle=visible[i];
 
-    const label = [...new Set(names)].join('/');
-    const isBuy = direction === 'BUY';
+    const label=[...new Set(names)].join('/');
+    const isBuy=direction==='BUY';
 
-    const xx = x(i);
-    const yy = isBuy
-      ? y(Number(candle.l)) + 18
-      : y(Number(candle.h)) - 18;
+    const xx=x(i);
+    const yy=isBuy
+      ?y(Number(candle.l))+18
+      :y(Number(candle.h))-18;
 
-    const boxWidth = ctx.measureText(label).width + 12;
-    const boxHeight = 18;
+    const boxWidth=ctx.measureText(label).width+12;
+    const boxHeight=18;
 
-    const bx = Math.max(
+    const bx=Math.max(
       2,
-      Math.min(w - boxWidth - 2, xx - boxWidth / 2)
+      Math.min(w-boxWidth-2,xx-boxWidth/2)
     );
 
-    const by = Math.max(
+    const by=Math.max(
       2,
-      Math.min(h - boxHeight - 2, yy - boxHeight / 2)
+      Math.min(h-boxHeight-2,yy-boxHeight/2)
     );
 
-    ctx.fillStyle = isBuy ? '#155c47' : '#75313b';
-    ctx.fillRect(bx, by, boxWidth, boxHeight);
+    ctx.fillStyle=isBuy?'#155c47':'#75313b';
+    ctx.fillRect(bx,by,boxWidth,boxHeight);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, bx + boxWidth / 2, by + 13);
+    ctx.fillStyle='#ffffff';
+    ctx.fillText(label,bx+boxWidth/2,by+13);
   });
 
-  ctx.textAlign = 'start';
-  }
+  ctx.textAlign='start';
+}
 
 // ==============================
 // SIGNALS
@@ -485,33 +675,48 @@ function renderSignals(analysis) {
 
   $('signals').innerHTML=names.map(([key,label])=>{
     const matches=detected.filter(x=>
-      String(x.name||'').toUpperCase().replace(/[^A-Z]/g,'')===key
+      String(x.name||'')
+        .toUpperCase()
+        .replace(/[^A-Z]/g,'')===key
     );
 
     const content=matches.length
       ?matches.map(x=>{
-        const direction=String(x.direction||'WAIT').toUpperCase();
-        const cls=direction==='BUY'?'buy':direction==='SELL'?'sell':'wait';
+        const direction=String(
+          x.direction||'WAIT'
+        ).toUpperCase();
 
-        return '<span class="'+cls+'">'+esc(direction)+'</span> — '+esc(x.reason||'');
+        const cls=direction==='BUY'
+          ?'buy'
+          :direction==='SELL'
+            ?'sell'
+            :'wait';
+
+        return '<span class="'+cls+'">'+
+          esc(direction)+'</span> — '+
+          esc(x.reason||'');
       }).join('<div style="margin-top:6px"></div>')
       :'Tidak terdeteksi pada candle terakhir';
 
-    return '<div class="signal"><strong>'+label+'</strong><div class="muted" style="margin-top:6px">'+content+'</div></div>';
+    return '<div class="signal"><strong>'+
+      label+
+      '</strong><div class="muted" style="margin-top:6px">'+
+      content+
+      '</div></div>';
   }).join('');
 }
 
 function renderIndicators(analysis) {
   const indicators=analysis.indicators||{};
-
   const entries=Object.entries(indicators);
 
   $('indicators').innerHTML=entries.length
     ?entries.map(([key,value])=>
-      '<div class="metric"><span class="muted">'+esc(key)+
-      '</span><strong>'+esc(
-        typeof value==='number'?fmt(value):value
-      )+'</strong></div>'
+      '<div class="metric"><span class="muted">'+
+      esc(key)+
+      '</span><strong>'+
+      esc(typeof value==='number'?fmt(value):value)+
+      '</strong></div>'
     ).join('')
     :'<p class="muted">Belum cukup data indikator.</p>';
 }
@@ -547,24 +752,38 @@ async function load() {
     if(id!==requestId)return;
 
     const analysis=data.analysis||{};
-    const candles=Array.isArray(data.candles)?data.candles:[];
+    const candles=Array.isArray(data.candles)
+      ?data.candles
+      :[];
 
     last=candles;
 
-    const latest=candles.length?candles[candles.length-1]:null;
+    const latest=candles.length
+      ?candles[candles.length-1]
+      :null;
 
-    $('price').textContent=latest?fmt(latest.c):'—';
+    $('price').textContent=latest
+      ?fmt(latest.c)
+      :'—';
+
     $('timeframe').textContent=tf;
 
-    const signal=String(analysis.signal||'WAIT').toUpperCase();
+    const signal=String(
+      analysis.signal||'WAIT'
+    ).toUpperCase();
+
     $('headline').textContent=signal;
     $('headline').className='value '+(
-      signal==='BUY'?'green':
-      signal==='SELL'?'red':'yellow'
+      signal==='BUY'
+        ?'green'
+        :signal==='SELL'
+          ?'red'
+          :'yellow'
     );
 
     $('lastTime').textContent=data.last_candle_utc
-      ?new Date(data.last_candle_utc).toLocaleString('id-ID',{
+      ?new Date(data.last_candle_utc)
+        .toLocaleString('id-ID',{
           day:'2-digit',
           month:'short',
           hour:'2-digit',
@@ -572,28 +791,27 @@ async function load() {
         })
       :'—';
 
-    $('updated').textContent=data.last_candle_utc
-      ?'Last completed candle: '+new Date(data.last_candle_utc).toLocaleString()
-      :'No data yet';
+    $('reason').textContent=
+      analysis.reason||analysis.note||'—';
 
-    $('reason').textContent=analysis.reason||analysis.note||'—';
+    renderSignals(analysis);
+    renderIndicators(analysis);
 
-renderSignals(analysis);
-renderIndicators(analysis);
+    lastSignals=Array.isArray(analysis.history)
+      ?analysis.history
+      :[];
 
-lastSignals = Array.isArray(analysis.history)
-  ? analysis.history
-  : [];
+    $('updated').textContent=
+      'Candles: '+candles.length+
+      ' | Historical signals: '+lastSignals.length;
 
-$('updated').textContent =
-  'Candles: ' + candles.length +
-  ' | Historical signals: ' + lastSignals.length;
-
-draw(last);
+    draw(last);
 
   }catch(error){
     if(id!==requestId)return;
-    $('updated').textContent='Connection error: '+error.message;
+
+    $('updated').textContent=
+      'Connection error: '+error.message;
   }
 }
 
@@ -623,10 +841,10 @@ async function logout() {
 // EVENTS
 // ==============================
 
-$('logout').onclick=logout;
 $('refresh').onclick=load;
 $('tf').onchange=load;
-window.onresize=()=>draw(last);
+
+window.addEventListener('resize',()=>draw(last));
 
 load();
 setInterval(load,60000);
