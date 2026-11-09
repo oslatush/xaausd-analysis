@@ -186,7 +186,16 @@ def zzl_page(request: Request):
     return (
         Path(__file__).parent / 'templates' / 'zzl.html'
     ).read_text(encoding='utf-8')
+    
+@app.get('/telegram', response_class=HTMLResponse)
+def telegram_page(request: Request):
+    if not get_role(request):
+        return RedirectResponse('/login', status_code=303)
 
+    return (
+        Path(__file__).parent / 'templates' / 'telegram.html'
+    ).read_text(encoding='utf-8')
+    
 @app.get('/api/market')
 def market(request: Request, tf: str = 'M5'):
     require_role(request, 'ema')
