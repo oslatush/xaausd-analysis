@@ -192,7 +192,21 @@ def make_router(get_role):
             "ok": True,
             "settings": config
         }
+        
+    @router.post("/api/telegram/test")
+    def test_telegram(request: Request):
+        authorized(request)
 
+        if send_telegram(
+            "✅ TEST XAUUSD\n"
+            "Telegram notification berhasil terhubung!"
+        ):
+            return {"ok": True, "message": "Telegram sent"}
+
+        raise HTTPException(
+            status_code=502,
+            detail="Telegram send failed. Check Railway logs."
+        )
     return router
 
 
