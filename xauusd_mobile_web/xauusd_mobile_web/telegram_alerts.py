@@ -195,7 +195,7 @@ def make_router(get_role):
         
     @router.post("/api/telegram/test")
     def test_telegram(request: Request):
-        get_role(request)
+        require_login(request)
 
         if send_telegram(
             "✅ TEST XAUUSD\n"
