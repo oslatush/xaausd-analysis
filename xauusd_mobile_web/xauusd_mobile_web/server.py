@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-
+from telegram_alerts import make_router, process_ingest
 from pydantic import BaseModel, Field
 from bbma_signals import analyze_bbma
 from zzl_signals import analyze_zzl
@@ -48,6 +48,7 @@ def get_role(request: Request):
         return data['role']
     except (ValueError, TypeError, KeyError, UnicodeError):
         return None
+        app.include_router(make_router(get_role))
 
 def require_role(request: Request, role: str):
     if get_role(request) != 'all':
@@ -228,7 +229,17 @@ def ingest(body: Upload, request: Request):
     with db() as conn:
         conn.executemany('INSERT INTO candles(symbol,tf,ts,o,h,l,c,volume) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(symbol,tf,ts) DO UPDATE SET o=excluded.o,h=excluded.h,l=excluded.l,c=excluded.c,volume=excluded.volume', [('XAUUSD',body.timeframe,x.ts,x.o,x.h,x.l,x.c,x.volume) for x in body.candles])
         conn.execute('DELETE FROM candles WHERE rowid IN (SELECT rowid FROM candles WHERE symbol=? AND tf=? ORDER BY ts DESC LIMIT -1 OFFSET 3000)',('XAUUSD',body.timeframe))
-        conn.commit()
+        conn.commit()    try:
+        process_ingest(
+            body.timeframe,
+            get_rows(body.timeframe),
+            analyze,
+            analyze_bbma,
+            analyze_zzl
+        )
+    except Exception:
+        import logging
+        logging.exception("Telegram notification processing failed")
     return {'ok':True,'received':len(body.candles)}
 
 @app.get('/health')
