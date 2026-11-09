@@ -48,7 +48,8 @@ def get_role(request: Request):
         return data['role']
     except (ValueError, TypeError, KeyError, UnicodeError):
         return None
-        app.include_router(make_router(get_role))
+
+app.include_router(make_router(get_role))
 
 def require_role(request: Request, role: str):
     if get_role(request) != 'all':
@@ -226,10 +227,39 @@ def ingest(body: Upload, request: Request):
     for v in body.candles:
         if not all(math.isfinite(x) for x in [v.o,v.h,v.l,v.c,v.volume]) or v.l>min(v.o,v.c) or v.h<max(v.o,v.c) or v.h<v.l or v.volume<0:
             raise HTTPException(422,'Invalid OHLC')
-    with db() as conn:
-        conn.executemany('INSERT INTO candles(symbol,tf,ts,o,h,l,c,volume) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(symbol,tf,ts) DO UPDATE SET o=excluded.o,h=excluded.h,l=excluded.l,c=excluded.c,volume=excluded.volume', [('XAUUSD',body.timeframe,x.ts,x.o,x.h,x.l,x.c,x.volume) for x in body.candles])
-        conn.execute('DELETE FROM candles WHERE rowid IN (SELECT rowid FROM candles WHERE symbol=? AND tf=? ORDER BY ts DESC LIMIT -1 OFFSET 3000)',('XAUUSD',body.timeframe))
-        conn.commit()    try:
+       with db() as conn:
+        conn.executemany(
+            'INSERT INTO candles(symbol,tf,ts,o,h,l,c,volume) '
+            'VALUES(?,?,?,?,?,?,?,?) '
+            'ON CONFLICT(symbol,tf,ts) DO UPDATE SET '
+            'o=excluded.o,h=excluded.h,l=excluded.l,'
+            'c=excluded.c,volume=excluded.volume',
+            [
+                (
+                    'XAUUSD',
+                    body.timeframe,
+                    x.ts,
+                    x.o,
+                    x.h,
+                    x.l,
+                    x.c,
+                    x.volume
+                )
+                for x in body.candles
+            ]
+        )
+
+        conn.execute(
+            'DELETE FROM candles WHERE rowid IN '
+            '(SELECT rowid FROM candles '
+            'WHERE symbol=? AND tf=? '
+            'ORDER BY ts DESC LIMIT -1 OFFSET 3000)',
+            ('XAUUSD', body.timeframe)
+        )
+
+        conn.commit()
+
+    try:
         process_ingest(
             body.timeframe,
             get_rows(body.timeframe),
@@ -239,8 +269,16 @@ def ingest(body: Upload, request: Request):
         )
     except Exception:
         import logging
-        logging.exception("Telegram notification processing failed")
-    return {'ok':True,'received':len(body.candles)}
+        logging.exception(
+            "Telegram notification processing failed"
+        )
+
+    return {
+        'ok': True,
+        'received': len(body.candles)
+    }
+
 
 @app.get('/health')
-def health(): return {'ok':True}
+def health():
+    return {'ok': True}
