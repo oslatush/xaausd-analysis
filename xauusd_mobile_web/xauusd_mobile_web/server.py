@@ -225,9 +225,19 @@ def ingest(body: Upload, request: Request):
         raise HTTPException(401,'Unauthorized')
     if body.symbol.upper()!='XAUUSD': raise HTTPException(400,'Only XAUUSD allowed')
     for v in body.candles:
-        if not all(math.isfinite(x) for x in [v.o,v.h,v.l,v.c,v.volume]) or v.l>min(v.o,v.c) or v.h<max(v.o,v.c) or v.h<v.l or v.volume<0:
-            raise HTTPException(422,'Invalid OHLC')
-       with db() as conn:
+        if (
+            not all(
+                math.isfinite(x)
+                for x in [v.o, v.h, v.l, v.c, v.volume]
+            )
+            or v.l > min(v.o, v.c)
+            or v.h < max(v.o, v.c)
+            or v.h < v.l
+            or v.volume < 0
+        ):
+            raise HTTPException(422, 'Invalid OHLC')
+
+    with db() as conn:
         conn.executemany(
             'INSERT INTO candles(symbol,tf,ts,o,h,l,c,volume) '
             'VALUES(?,?,?,?,?,?,?,?) '
