@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server.py .
 COPY bbma_signals.py .
 COPY zzl_signals.py .
+COPY telegram_alerts.py /app/telegram_alerts.py
 COPY templates ./templates
 
 ENV PYTHONUNBUFFERED=1
