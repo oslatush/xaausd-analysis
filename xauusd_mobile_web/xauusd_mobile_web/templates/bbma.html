@@ -5,39 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>XAUUSD BBMA Scanner</title>
-/* Telegram notification */
-.telegram-options {
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin:14px 0;
-}
-.telegram-option {
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  background:#19283f;
-  border:1px solid #354862;
-  border-radius:9px;
-  padding:10px 13px;
-  cursor:pointer;
-  font-size:14px;
-}
-.telegram-option input {
-  width:17px;
-  height:17px;
-  accent-color:#46d8a0;
-}
-.telegram-status {
-  margin-top:12px;
-  min-height:20px;
-  color:#91a5c1;
-  font-size:13px;
-}
-.telegram-save:disabled {
-  opacity:.5;
-  cursor:wait;
-}
+
 <style>
 :root {
   color-scheme: dark;
@@ -218,6 +186,50 @@ select,button {
   display: block;
 }
 
+/* TELEGRAM NOTIFICATION */
+
+.telegram-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.telegram-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #19283f;
+  border: 1px solid #354862;
+  border-radius: 9px;
+  padding: 10px 13px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.telegram-option input {
+  width: 17px;
+  height: 17px;
+  accent-color: #46d8a0;
+}
+
+.telegram-status {
+  margin-top: 12px;
+  min-height: 20px;
+  color: #91a5c1;
+  font-size: 13px;
+}
+
+.telegram-save {
+  background: #1769aa;
+  padding: 11px 18px;
+}
+
+.telegram-save:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
 @media(max-width:700px) {
   .cards { grid-template-columns: repeat(2,1fr); }
   .indicators { grid-template-columns: repeat(2,1fr); }
@@ -249,9 +261,12 @@ select,button {
   <h3>XAUUSD Analysis</h3>
 
   <a href="/">📈 EMA Analysis</a>
+
   <a href="/bbma" class="active" aria-current="page">
     📊 BBMA Scanner
   </a>
+
+  <a href="/zzl">⚡ ZZL Scanner</a>
 
   <button
     type="button"
@@ -348,6 +363,83 @@ select,button {
   divalidasi terhadap chart BBMA Oma Ally.
   Tidak melakukan order otomatis.
 </p>
+
+<!-- TELEGRAM NOTIFICATION BBMA -->
+
+<section class="panel">
+  <div class="row">
+    <h3>🔔 Telegram Notification — BBMA</h3>
+    <span class="muted">XAUUSD Signal Alerts</span>
+  </div>
+
+  <p class="muted">
+    Pilih kondisi BBMA yang ingin dikirim otomatis
+    ke Telegram setelah candle selesai.
+  </p>
+
+  <label class="telegram-option">
+    <input type="checkbox" id="telegramEnabled">
+    Enable Telegram Alert
+  </label>
+
+  <h3>Timeframes</h3>
+
+  <div class="telegram-options" id="telegramFrames">
+    <label class="telegram-option">
+      <input type="checkbox" value="M5"> M5
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="M15"> M15
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="H1"> H1
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="H4"> H4
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="D1"> D1
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="W1"> W1
+    </label>
+  </div>
+
+  <h3>BBMA Conditions</h3>
+
+  <div class="telegram-options" id="telegramConditions">
+    <label class="telegram-option">
+      <input type="checkbox" value="EXTREME"> EXTREME
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="MHV"> MHV
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="CSAK"> CSAK
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="CSM"> CSM
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="REENTRY"> REENTRY
+    </label>
+  </div>
+
+  <button
+    id="telegramSave"
+    class="telegram-save"
+    type="button"
+    onclick="saveTelegramSettings()"
+  >
+    Save Telegram Settings
+  </button>
+
+  <div
+    id="telegramStatus"
+    class="telegram-status"
+    role="status"
+  ></div>
+</section>
 
 </main>
 
@@ -870,6 +962,131 @@ async function logout() {
 }
 
 // ==============================
+// TELEGRAM NOTIFICATION
+// ==============================
+
+function telegramSelected(containerId) {
+  return Array.from(
+    document.querySelectorAll(
+      `#${containerId} input[type="checkbox"]:checked`
+    )
+  ).map(input=>input.value);
+}
+
+async function loadTelegramSettings() {
+  const status=$('telegramStatus');
+
+  try {
+    const response=await fetch('/api/telegram/settings',{
+      credentials:'same-origin',
+      cache:'no-store'
+    });
+
+    if(response.status===401){
+      window.location.replace('/login');
+      return;
+    }
+
+    if(!response.ok){
+      throw new Error('HTTP '+response.status);
+    }
+
+    const settings=await response.json();
+    const config=settings.bbma;
+
+    $('telegramEnabled').checked=config.enabled;
+
+    document.querySelectorAll(
+      '#telegramFrames input'
+    ).forEach(input=>{
+      input.checked=config.timeframes.includes(input.value);
+    });
+
+    document.querySelectorAll(
+      '#telegramConditions input'
+    ).forEach(input=>{
+      input.checked=config.conditions.includes(input.value);
+    });
+
+    status.textContent='Pengaturan Telegram berhasil dimuat.';
+
+  }catch(error){
+    status.textContent='Gagal memuat: '+error.message;
+  }
+}
+
+async function saveTelegramSettings() {
+  const button=$('telegramSave');
+  const status=$('telegramStatus');
+
+  button.disabled=true;
+  status.textContent='Menyimpan...';
+
+  try {
+    const response=await fetch('/api/telegram/settings',{
+      credentials:'same-origin',
+      cache:'no-store'
+    });
+
+    if(response.status===401){
+      window.location.replace('/login');
+      return;
+    }
+
+    if(!response.ok){
+      throw new Error('Gagal membaca pengaturan');
+    }
+
+    const settings=await response.json();
+    const enabled=$('telegramEnabled').checked;
+    const timeframes=telegramSelected('telegramFrames');
+    const conditions=telegramSelected('telegramConditions');
+
+    if(enabled&&!timeframes.length){
+      throw new Error('Pilih minimal satu timeframe.');
+    }
+
+    if(enabled&&!conditions.length){
+      throw new Error('Pilih minimal satu kondisi BBMA.');
+    }
+
+    // Preserve EMA and ZZL settings.
+    settings.bbma={
+      enabled,
+      timeframes,
+      conditions
+    };
+
+    const saveResponse=await fetch('/api/telegram/settings',{
+      method:'PUT',
+      credentials:'same-origin',
+      headers:{
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify(settings)
+    });
+
+    if(saveResponse.status===401){
+      window.location.replace('/login');
+      return;
+    }
+
+    if(!saveResponse.ok){
+      throw new Error('HTTP '+saveResponse.status);
+    }
+
+    status.textContent=
+      '✓ Telegram BBMA berhasil disimpan.';
+
+  }catch(error){
+    status.textContent=
+      'Gagal menyimpan: '+error.message;
+  }finally{
+    button.disabled=false;
+  }
+}
+
+// ==============================
 // EVENTS
 // ==============================
 
@@ -879,8 +1096,11 @@ $('tf').onchange=load;
 window.addEventListener('resize',()=>draw(last));
 
 load();
+loadTelegramSettings();
+
 setInterval(load,60000);
 
 </script>
 </body>
 </html>
+
