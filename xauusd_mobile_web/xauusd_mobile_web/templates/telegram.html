@@ -1,0 +1,425 @@
+
+"""Telegram notifications for XAUUSD scanners.
+
+Settings and notification history are stored in SQLite.
+For Railway, DB_PATH should point to a persistent volume.
+"""
+
+import json
+import logging
+import os
+import sqlite3
+import threading
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
+
+
+LOGGER = logging.getLogger(__name__)
+
+DB_PATH = os.getenv("DB_PATH", "./market.db")
+
+TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1", "W1")
+BBMA_TIMEFRAMES = ("M5", "M15", "H1", "H4", "D1", "W1")
+BBMA_CONDITIONS = ("EXTREME", "MHV", "CSAK", "CSM", "REENTRY")
+
+LOCK = threading.Lock()
+
+DEFAULT = {
+    "ema": {
+        "enabled": False,
+        "timeframes": []
+    },
+    "bbma": {
+        "enabled": False,
+        "timeframes": [],
+        "conditions": []
+    },
+    "zzl": {
+        "enabled": False,
+        "timeframes": []
+    }
+}
+
+
+class ScannerSettings(BaseModel):
+    enabled: bool = False
+    timeframes: list[str] = Field(default_factory=list)
+
+
+class BBMASettings(ScannerSettings):
+    conditions: list[str] = Field(default_factory=list)
+
+
+class AlertSettings(BaseModel):
+    ema: ScannerSettings
+    bbma: BBMASettings
+    zzl: ScannerSettings
+
+
+def connect():
+    conn = sqlite3.connect(DB_PATH, timeout=20)
+
+    conn.execute("PRAGMA busy_timeout=20000")
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS telegram_settings (
+            id INTEGER PRIMARY KEY CHECK(id=1),
+            config TEXT NOT NULL
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS telegram_seen_candles (
+            tf TEXT PRIMARY KEY,
+            ts INTEGER NOT NULL
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS telegram_sent (
+            scanner TEXT NOT NULL,
+            tf TEXT NOT NULL,
+            condition TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            ts INTEGER NOT NULL,
+            PRIMARY KEY(scanner, tf, condition, direction, ts)
+        )
+    """)
+
+    conn.execute(
+        "INSERT OR IGNORE INTO telegram_settings(id,config) VALUES(1,?)",
+        (json.dumps(DEFAULT),)
+    )
+
+    conn.commit()
+    return conn
+
+
+def get_settings():
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT config FROM telegram_settings WHERE id=1"
+        ).fetchone()
+
+        return json.loads(row[0])
+
+
+def save_settings(config):
+    with LOCK:
+        with connect() as conn:
+            conn.execute(
+                "UPDATE telegram_settings SET config=? WHERE id=1",
+                (json.dumps(config),)
+            )
+            conn.commit()
+
+
+def make_router(get_role):
+    router = APIRouter()
+
+    def authorized(request):
+        if get_role(request) != "all":
+            raise HTTPException(401, "Unauthorized")
+
+    @router.get("/api/telegram/settings")
+    def read_settings(request: Request):
+        authorized(request)
+        return get_settings()
+
+    @router.put("/api/telegram/settings")
+    def update_settings(
+        body: AlertSettings,
+        request: Request
+    ):
+        authorized(request)
+        config = body.model_dump()
+
+        for scanner in ("ema", "bbma", "zzl"):
+            allowed = (
+                BBMA_TIMEFRAMES
+                if scanner == "bbma"
+                else TIMEFRAMES
+            )
+
+            frames = config[scanner]["timeframes"]
+
+            if (
+                len(frames) != len(set(frames))
+                or any(tf not in allowed for tf in frames)
+            ):
+                raise HTTPException(
+                    422,
+                    f"Invalid {scanner} timeframes"
+                )
+
+        conditions = config["bbma"]["conditions"]
+
+        if (
+            len(conditions) != len(set(conditions))
+            or any(c not in BBMA_CONDITIONS for c in conditions)
+        ):
+            raise HTTPException(
+                422,
+                "Invalid BBMA conditions"
+            )
+
+        save_settings(config)
+
+        return {
+            "ok": True,
+            "settings": config
+        }
+
+    return router
+
+
+def send_telegram(message):
+    token = os.getenv(
+        "TELEGRAM_BOT_TOKEN", ""
+    ).strip()
+
+    chat_id = os.getenv(
+        "TELEGRAM_CHAT_ID", ""
+    ).strip()
+
+    if not token or not chat_id:
+        LOGGER.warning(
+            "Telegram variables not configured"
+        )
+        return False
+
+    url = (
+        f"https://api.telegram.org/"
+        f"bot{token}/sendMessage"
+    )
+
+    payload = urllib.parse.urlencode({
+        "chat_id": chat_id,
+        "text": message
+    }).encode()
+
+    try:
+        request = urllib.request.Request(
+            url,
+            data=payload,
+            method="POST"
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=8
+        ) as response:
+            data = json.load(response)
+
+        return bool(data.get("ok"))
+
+    except (
+        urllib.error.URLError,
+        TimeoutError,
+        ValueError
+    ) as exc:
+        LOGGER.warning(
+            "Telegram send failed: %s",
+            exc
+        )
+        return False
+
+
+def format_alert(
+    scanner,
+    tf,
+    name,
+    direction,
+    row,
+    reason
+):
+    ts = datetime.fromtimestamp(
+        int(row["ts"]),
+        timezone.utc
+    ).astimezone(
+        timezone(timedelta(hours=7))
+    )
+
+    heading = f"{scanner} {name}".strip()
+
+    emoji = (
+        "🟢"
+        if direction == "BUY"
+        else "🔴"
+    )
+
+    return (
+        f"{emoji} XAUUSD — "
+        f"{heading} {direction}\n"
+        f"Timeframe: {tf}\n"
+        f"Close: {float(row['c']):,.2f}\n"
+        f"Candle: {ts:%d-%m-%Y %H:%M} WIB\n"
+        f"{reason}"
+    )
+
+
+def process_ingest(
+    tf,
+    rows,
+    ema_analysis,
+    bbma_analysis,
+    zzl_analysis
+):
+    """Check signals after new closed candles arrive."""
+
+    if not rows:
+        return
+
+    latest = rows[-1]
+    ts = int(latest["ts"])
+
+    with LOCK:
+        with connect() as conn:
+            seen = conn.execute(
+                """
+                SELECT ts
+                FROM telegram_seen_candles
+                WHERE tf=?
+                """,
+                (tf,)
+            ).fetchone()
+
+            if seen is None:
+                # Initial sync: do not send old signals.
+                conn.execute(
+                    """
+                    INSERT INTO telegram_seen_candles(tf,ts)
+                    VALUES(?,?)
+                    """,
+                    (tf, ts)
+                )
+                conn.commit()
+                return
+
+            if ts <= seen[0]:
+                return
+
+            config = get_settings()
+            events = []
+
+            # EMA Analysis
+            if (
+                config["ema"]["enabled"]
+                and tf in config["ema"]["timeframes"]
+            ):
+                result = ema_analysis(rows)
+
+                if result.get("signal") in (
+                    "BUY", "SELL"
+                ):
+                    events.append((
+                        "EMA",
+                        "CROSS",
+                        result["signal"],
+                        result.get("reason", "")
+                    ))
+
+            # BBMA Scanner
+            if (
+                config["bbma"]["enabled"]
+                and tf in config["bbma"]["timeframes"]
+            ):
+                result = bbma_analysis(rows)
+
+                for item in result.get(
+                    "detected", []
+                ):
+                    if (
+                        item.get("name")
+                        in config["bbma"]["conditions"]
+                        and item.get("direction")
+                        in ("BUY", "SELL")
+                    ):
+                        events.append((
+                            "BBMA",
+                            item["name"],
+                            item["direction"],
+                            item.get("reason", "")
+                        ))
+
+            # ZZL Scanner
+            if (
+                config["zzl"]["enabled"]
+                and tf in config["zzl"]["timeframes"]
+            ):
+                result = zzl_analysis(rows)
+
+                if result.get("signal") in (
+                    "BUY", "SELL"
+                ):
+                    events.append((
+                        "ZZL",
+                        "CROSS",
+                        result["signal"],
+                        result.get("reason", "")
+                    ))
+
+            failed = False
+
+            for scanner, name, direction, reason in events:
+                key = (
+                    scanner,
+                    tf,
+                    name,
+                    direction,
+                    ts
+                )
+
+                already_sent = conn.execute(
+                    """
+                    SELECT 1
+                    FROM telegram_sent
+                    WHERE scanner=?
+                      AND tf=?
+                      AND condition=?
+                      AND direction=?
+                      AND ts=?
+                    """,
+                    key
+                ).fetchone()
+
+                if already_sent:
+                    continue
+
+                message = format_alert(
+                    scanner,
+                    tf,
+                    name,
+                    direction,
+                    latest,
+                    reason
+                )
+
+                if send_telegram(message):
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO telegram_sent
+                        (scanner,tf,condition,direction,ts)
+                        VALUES(?,?,?,?,?)
+                        """,
+                        key
+                    )
+                    conn.commit()
+                else:
+                    failed = True
+
+            if not failed and ts > seen[0]:
+                conn.execute(
+                    """
+                    UPDATE telegram_seen_candles
+                    SET ts=?
+                    WHERE tf=?
+                    """,
+                    (ts, tf)
+                )
+                conn.commit()
