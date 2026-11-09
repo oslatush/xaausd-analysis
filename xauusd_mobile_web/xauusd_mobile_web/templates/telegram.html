@@ -1,425 +1,257 @@
 
-"""Telegram notifications for XAUUSD scanners.
-
-Settings and notification history are stored in SQLite.
-For Railway, DB_PATH should point to a persistent volume.
-"""
-
-import json
-import logging
-import os
-import sqlite3
-import threading
-import urllib.error
-import urllib.parse
-import urllib.request
-from datetime import datetime, timedelta, timezone
-
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
-
-
-LOGGER = logging.getLogger(__name__)
-
-DB_PATH = os.getenv("DB_PATH", "./market.db")
-
-TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1", "W1")
-BBMA_TIMEFRAMES = ("M5", "M15", "H1", "H4", "D1", "W1")
-BBMA_CONDITIONS = ("EXTREME", "MHV", "CSAK", "CSM", "REENTRY")
-
-LOCK = threading.Lock()
-
-DEFAULT = {
-    "ema": {
-        "enabled": False,
-        "timeframes": []
-    },
-    "bbma": {
-        "enabled": False,
-        "timeframes": [],
-        "conditions": []
-    },
-    "zzl": {
-        "enabled": False,
-        "timeframes": []
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telegram Settings — XAUUSD</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #0b1120; color: #e5e7eb;
+      font-family: Arial, sans-serif;
     }
+    .layout { display: flex; min-height: 100vh; }
+    aside {
+      width: 230px; padding: 24px 16px;
+      background: #111827; border-right: 1px solid #334155;
+    }
+    aside h2 { font-size: 18px; margin: 0 0 28px; }
+    aside a {
+      display: block; padding: 12px; margin-bottom: 8px;
+      color: #cbd5e1; text-decoration: none; border-radius: 8px;
+    }
+    aside a.active, aside a:hover { background: #1e293b; color: white; }
+    main { flex: 1; padding: 32px; max-width: 1050px; }
+    h1 { margin-top: 0; }
+    .muted { color: #94a3b8; line-height: 1.6; }
+    .card {
+      background: #111827; border: 1px solid #334155;
+      border-radius: 14px; padding: 24px; margin: 22px 0;
+    }
+    .card-header {
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 12px;
+    }
+    .card h2 { margin: 0; font-size: 20px; }
+    .options {
+      display: flex; flex-wrap: wrap; gap: 12px;
+      margin-top: 16px;
+    }
+    label.option {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px; background: #1e293b;
+      border-radius: 8px; cursor: pointer;
+    }
+    input { accent-color: #38bdf8; width: 17px; height: 17px; }
+    h3 { margin: 22px 0 8px; font-size: 15px; }
+    button {
+      padding: 13px 24px; border: 0; border-radius: 8px;
+      background: #0284c7; color: white; font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .5; cursor: wait; }
+    #status { margin-top: 16px; min-height: 22px; }
+    @media(max-width: 650px) {
+      .layout { display: block; }
+      aside { width: 100%; padding: 12px; }
+      aside h2 { margin-bottom: 12px; }
+      main { padding: 18px; }
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h2>XAUUSD Analysis</h2>
+    <a href="/">📈 EMA Analysis</a>
+    <a href="/bbma">📊 BBMA Scanner</a>
+    <a href="/zzl">⚡ ZZL Scanner</a>
+    <a href="/telegram" class="active">🔔 Telegram Settings</a>
+  </aside>
+
+  <main>
+    <h1>🔔 Telegram Settings</h1>
+    <p class="muted">
+      Pilih scanner, timeframe, dan kondisi yang ingin dikirim
+      otomatis ke Telegram ketika candle baru selesai.
+    </p>
+
+    <div id="settings"></div>
+
+    <button id="saveBtn" onclick="saveSettings()">
+      Save Settings
+    </button>
+    <div id="status" role="status"></div>
+  </main>
+</div>
+
+<script>
+const FRAMES = ["M1", "M5", "M15", "H1", "H4", "D1", "W1"];
+const BBMA_FRAMES = ["M5", "M15", "H1", "H4", "D1", "W1"];
+const CONDITIONS = ["EXTREME", "MHV", "CSAK", "CSM", "REENTRY"];
+
+const SCANNERS = [
+  { key: "ema", title: "EMA Analysis", frames: FRAMES },
+  { key: "bbma", title: "BBMA Scanner", frames: BBMA_FRAMES },
+  { key: "zzl", title: "ZZL Scanner", frames: FRAMES }
+];
+
+function checkbox(name, value, checked) {
+  const label = document.createElement("label");
+  label.className = "option";
+
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.dataset.name = name;
+  input.value = value;
+  input.checked = checked;
+
+  label.append(input, document.createTextNode(value));
+  return label;
 }
 
+function render(settings) {
+  const root = document.getElementById("settings");
+  root.replaceChildren();
 
-class ScannerSettings(BaseModel):
-    enabled: bool = False
-    timeframes: list[str] = Field(default_factory=list)
+  for (const scanner of SCANNERS) {
+    const data = settings[scanner.key];
+    const card = document.createElement("section");
+    card.className = "card";
 
+    const header = document.createElement("div");
+    header.className = "card-header";
 
-class BBMASettings(ScannerSettings):
-    conditions: list[str] = Field(default_factory=list)
+    const title = document.createElement("h2");
+    title.textContent = scanner.title;
 
+    const toggle = checkbox(
+      scanner.key + ".enabled",
+      "Enable",
+      data.enabled
+    );
 
-class AlertSettings(BaseModel):
-    ema: ScannerSettings
-    bbma: BBMASettings
-    zzl: ScannerSettings
+    header.append(title, toggle);
+    card.append(header);
 
+    const heading = document.createElement("h3");
+    heading.textContent = "Timeframes";
+    card.append(heading);
 
-def connect():
-    conn = sqlite3.connect(DB_PATH, timeout=20)
+    const frames = document.createElement("div");
+    frames.className = "options";
 
-    conn.execute("PRAGMA busy_timeout=20000")
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS telegram_settings (
-            id INTEGER PRIMARY KEY CHECK(id=1),
-            config TEXT NOT NULL
+    for (const tf of scanner.frames) {
+      frames.append(
+        checkbox(
+          scanner.key + ".timeframes",
+          tf,
+          data.timeframes.includes(tf)
         )
-    """)
+      );
+    }
 
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS telegram_seen_candles (
-            tf TEXT PRIMARY KEY,
-            ts INTEGER NOT NULL
-        )
-    """)
+    card.append(frames);
 
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS telegram_sent (
-            scanner TEXT NOT NULL,
-            tf TEXT NOT NULL,
-            condition TEXT NOT NULL,
-            direction TEXT NOT NULL,
-            ts INTEGER NOT NULL,
-            PRIMARY KEY(scanner, tf, condition, direction, ts)
-        )
-    """)
+    if (scanner.key === "bbma") {
+      const conditionTitle = document.createElement("h3");
+      conditionTitle.textContent = "BBMA Conditions";
+      card.append(conditionTitle);
 
-    conn.execute(
-        "INSERT OR IGNORE INTO telegram_settings(id,config) VALUES(1,?)",
-        (json.dumps(DEFAULT),)
-    )
+      const conditions = document.createElement("div");
+      conditions.className = "options";
 
-    conn.commit()
-    return conn
+      for (const condition of CONDITIONS) {
+        conditions.append(
+          checkbox(
+            "bbma.conditions",
+            condition,
+            data.conditions.includes(condition)
+          )
+        );
+      }
 
+      card.append(conditions);
+    }
 
-def get_settings():
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT config FROM telegram_settings WHERE id=1"
-        ).fetchone()
+    root.append(card);
+  }
+}
 
-        return json.loads(row[0])
+function selected(name) {
+  return [...document.querySelectorAll("input")]
+    .filter(input => input.dataset.name === name && input.checked)
+    .map(input => input.value);
+}
 
+function collect() {
+  const config = {};
 
-def save_settings(config):
-    with LOCK:
-        with connect() as conn:
-            conn.execute(
-                "UPDATE telegram_settings SET config=? WHERE id=1",
-                (json.dumps(config),)
-            )
-            conn.commit()
+  for (const scanner of SCANNERS) {
+    config[scanner.key] = {
+      enabled: selected(scanner.key + ".enabled").length > 0,
+      timeframes: selected(scanner.key + ".timeframes")
+    };
+  }
 
+  config.bbma.conditions = selected("bbma.conditions");
+  return config;
+}
 
-def make_router(get_role):
-    router = APIRouter()
+async function loadSettings() {
+  const status = document.getElementById("status");
 
-    def authorized(request):
-        if get_role(request) != "all":
-            raise HTTPException(401, "Unauthorized")
+  try {
+    const response = await fetch("/api/telegram/settings");
 
-    @router.get("/api/telegram/settings")
-    def read_settings(request: Request):
-        authorized(request)
-        return get_settings()
+    if (response.status === 401) {
+      location.href = "/login";
+      return;
+    }
 
-    @router.put("/api/telegram/settings")
-    def update_settings(
-        body: AlertSettings,
-        request: Request
-    ):
-        authorized(request)
-        config = body.model_dump()
+    if (!response.ok) throw new Error("Gagal mengambil pengaturan");
 
-        for scanner in ("ema", "bbma", "zzl"):
-            allowed = (
-                BBMA_TIMEFRAMES
-                if scanner == "bbma"
-                else TIMEFRAMES
-            )
+    render(await response.json());
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
 
-            frames = config[scanner]["timeframes"]
+async function saveSettings() {
+  const button = document.getElementById("saveBtn");
+  const status = document.getElementById("status");
 
-            if (
-                len(frames) != len(set(frames))
-                or any(tf not in allowed for tf in frames)
-            ):
-                raise HTTPException(
-                    422,
-                    f"Invalid {scanner} timeframes"
-                )
+  button.disabled = true;
+  status.textContent = "Menyimpan...";
 
-        conditions = config["bbma"]["conditions"]
+  try {
+    const response = await fetch("/api/telegram/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collect())
+    });
 
-        if (
-            len(conditions) != len(set(conditions))
-            or any(c not in BBMA_CONDITIONS for c in conditions)
-        ):
-            raise HTTPException(
-                422,
-                "Invalid BBMA conditions"
-            )
+    if (response.status === 401) {
+      location.href = "/login";
+      return;
+    }
 
-        save_settings(config)
+    if (!response.ok) {
+      throw new Error("Gagal menyimpan pengaturan");
+    }
 
-        return {
-            "ok": True,
-            "settings": config
-        }
+    status.textContent = "✓ Pengaturan berhasil disimpan.";
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
 
-    return router
-
-
-def send_telegram(message):
-    token = os.getenv(
-        "TELEGRAM_BOT_TOKEN", ""
-    ).strip()
-
-    chat_id = os.getenv(
-        "TELEGRAM_CHAT_ID", ""
-    ).strip()
-
-    if not token or not chat_id:
-        LOGGER.warning(
-            "Telegram variables not configured"
-        )
-        return False
-
-    url = (
-        f"https://api.telegram.org/"
-        f"bot{token}/sendMessage"
-    )
-
-    payload = urllib.parse.urlencode({
-        "chat_id": chat_id,
-        "text": message
-    }).encode()
-
-    try:
-        request = urllib.request.Request(
-            url,
-            data=payload,
-            method="POST"
-        )
-
-        with urllib.request.urlopen(
-            request,
-            timeout=8
-        ) as response:
-            data = json.load(response)
-
-        return bool(data.get("ok"))
-
-    except (
-        urllib.error.URLError,
-        TimeoutError,
-        ValueError
-    ) as exc:
-        LOGGER.warning(
-            "Telegram send failed: %s",
-            exc
-        )
-        return False
-
-
-def format_alert(
-    scanner,
-    tf,
-    name,
-    direction,
-    row,
-    reason
-):
-    ts = datetime.fromtimestamp(
-        int(row["ts"]),
-        timezone.utc
-    ).astimezone(
-        timezone(timedelta(hours=7))
-    )
-
-    heading = f"{scanner} {name}".strip()
-
-    emoji = (
-        "🟢"
-        if direction == "BUY"
-        else "🔴"
-    )
-
-    return (
-        f"{emoji} XAUUSD — "
-        f"{heading} {direction}\n"
-        f"Timeframe: {tf}\n"
-        f"Close: {float(row['c']):,.2f}\n"
-        f"Candle: {ts:%d-%m-%Y %H:%M} WIB\n"
-        f"{reason}"
-    )
-
-
-def process_ingest(
-    tf,
-    rows,
-    ema_analysis,
-    bbma_analysis,
-    zzl_analysis
-):
-    """Check signals after new closed candles arrive."""
-
-    if not rows:
-        return
-
-    latest = rows[-1]
-    ts = int(latest["ts"])
-
-    with LOCK:
-        with connect() as conn:
-            seen = conn.execute(
-                """
-                SELECT ts
-                FROM telegram_seen_candles
-                WHERE tf=?
-                """,
-                (tf,)
-            ).fetchone()
-
-            if seen is None:
-                # Initial sync: do not send old signals.
-                conn.execute(
-                    """
-                    INSERT INTO telegram_seen_candles(tf,ts)
-                    VALUES(?,?)
-                    """,
-                    (tf, ts)
-                )
-                conn.commit()
-                return
-
-            if ts <= seen[0]:
-                return
-
-            config = get_settings()
-            events = []
-
-            # EMA Analysis
-            if (
-                config["ema"]["enabled"]
-                and tf in config["ema"]["timeframes"]
-            ):
-                result = ema_analysis(rows)
-
-                if result.get("signal") in (
-                    "BUY", "SELL"
-                ):
-                    events.append((
-                        "EMA",
-                        "CROSS",
-                        result["signal"],
-                        result.get("reason", "")
-                    ))
-
-            # BBMA Scanner
-            if (
-                config["bbma"]["enabled"]
-                and tf in config["bbma"]["timeframes"]
-            ):
-                result = bbma_analysis(rows)
-
-                for item in result.get(
-                    "detected", []
-                ):
-                    if (
-                        item.get("name")
-                        in config["bbma"]["conditions"]
-                        and item.get("direction")
-                        in ("BUY", "SELL")
-                    ):
-                        events.append((
-                            "BBMA",
-                            item["name"],
-                            item["direction"],
-                            item.get("reason", "")
-                        ))
-
-            # ZZL Scanner
-            if (
-                config["zzl"]["enabled"]
-                and tf in config["zzl"]["timeframes"]
-            ):
-                result = zzl_analysis(rows)
-
-                if result.get("signal") in (
-                    "BUY", "SELL"
-                ):
-                    events.append((
-                        "ZZL",
-                        "CROSS",
-                        result["signal"],
-                        result.get("reason", "")
-                    ))
-
-            failed = False
-
-            for scanner, name, direction, reason in events:
-                key = (
-                    scanner,
-                    tf,
-                    name,
-                    direction,
-                    ts
-                )
-
-                already_sent = conn.execute(
-                    """
-                    SELECT 1
-                    FROM telegram_sent
-                    WHERE scanner=?
-                      AND tf=?
-                      AND condition=?
-                      AND direction=?
-                      AND ts=?
-                    """,
-                    key
-                ).fetchone()
-
-                if already_sent:
-                    continue
-
-                message = format_alert(
-                    scanner,
-                    tf,
-                    name,
-                    direction,
-                    latest,
-                    reason
-                )
-
-                if send_telegram(message):
-                    conn.execute(
-                        """
-                        INSERT OR IGNORE INTO telegram_sent
-                        (scanner,tf,condition,direction,ts)
-                        VALUES(?,?,?,?,?)
-                        """,
-                        key
-                    )
-                    conn.commit()
-                else:
-                    failed = True
-
-            if not failed and ts > seen[0]:
-                conn.execute(
-                    """
-                    UPDATE telegram_seen_candles
-                    SET ts=?
-                    WHERE tf=?
-                    """,
-                    (ts, tf)
-                )
-                conn.commit()
+loadSettings();
+</script>
+</body>
+</html>
