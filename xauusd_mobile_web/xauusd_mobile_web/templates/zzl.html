@@ -1,0 +1,439 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XAUUSD ZZL Scanner</title>
+<style>
+:root {
+  color-scheme: dark;
+  font-family: system-ui,-apple-system,Segoe UI,sans-serif;
+  background: #0b1220;
+  color: #e8eef9;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.wrap { max-width: 1100px; margin: auto; padding: 76px 18px 18px; }
+header,.row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+h1 { font-size:22px; margin:0; }
+h3 { margin-top:0; }
+p { color:#9daec8; }
+select,button {
+  background:#19283f; color:white; border:1px solid #354862;
+  border-radius:9px; padding:11px; font-size:14px; cursor:pointer;
+}
+.cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
+.card,.panel {
+  background:#111d30; border:1px solid #293950;
+  border-radius:14px; padding:16px; margin:12px 0;
+}
+.muted { color:#91a5c1; font-size:12px; }
+.value { font-size:22px; font-weight:700; margin-top:6px; }
+.green { color:#46d8a0; }
+.red { color:#ff7d87; }
+.yellow { color:#f6c76b; }
+.chart { display:block; width:100%; height:370px; }
+.legend { display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; font-size:12px; }
+.history { max-height:330px; overflow-y:auto; }
+.history-item {
+  display:flex; justify-content:space-between; gap:12px;
+  padding:12px 0; border-bottom:1px solid #293950;
+}
+.foot { font-size:12px; line-height:1.6; }
+#menuBtn { position:fixed; top:14px; left:14px; z-index:1002; padding:9px 13px; }
+.sidebar {
+  position:fixed; top:0; left:0; width:260px;
+  height:100vh; height:100dvh; padding:70px 15px 20px;
+  background:#111827; border-right:1px solid #293950;
+  z-index:1001; transform:translateX(-100%);
+  transition:transform .25s ease; overflow-y:auto;
+}
+.sidebar.open { transform:translateX(0); }
+.sidebar h3 { margin:0 0 22px; font-size:17px; }
+.sidebar a,.sidebar button {
+  display:block; width:100%; padding:14px; margin-bottom:8px;
+  color:#e8eef9; background:transparent; border:0;
+  border-radius:9px; text-align:left; text-decoration:none;
+  font-size:15px; cursor:pointer;
+}
+.sidebar a:hover,.sidebar button:hover { background:#263750; }
+.sidebar a.active { background:#263d5c; color:#69b7ff; font-weight:600; }
+.sidebar .logout-btn { margin-top:24px; color:#ff929b; }
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000; }
+.overlay[hidden] { display:none; }
+@media(max-width:700px) {
+  .cards { grid-template-columns:repeat(2,1fr); }
+  .chart { height:280px; }
+  .wrap { padding:76px 12px 18px; }
+  .value { font-size:18px; }
+}
+</style>
+</head>
+<body>
+
+<button id="menuBtn" type="button" aria-label="Buka menu"
+  aria-expanded="false" aria-controls="sidebar"
+  onclick="toggleSidebar()">☰</button>
+
+<div id="overlay" class="overlay" hidden onclick="closeSidebar()"></div>
+
+<nav id="sidebar" class="sidebar" aria-label="Navigasi dashboard">
+  <h3>XAUUSD Analysis</h3>
+  <a href="/">📈 EMA Analysis</a>
+  <a href="/bbma">📊 BBMA Scanner</a>
+  <a href="/zzl" class="active" aria-current="page">⚡ ZZL Scanner</a>
+  <button class="logout-btn" type="button" onclick="logout()">🚪 Logout</button>
+</nav>
+
+<main class="wrap">
+<header>
+  <div>
+    <h1>⚡ XAUUSD ZZL Scanner</h1>
+    <p>EMA 20 × EMA 50 · Closed candle crossover</p>
+  </div>
+  <div class="row">
+    <select id="tf">
+      <option>M1</option>
+      <option selected>M5</option>
+      <option>M15</option>
+      <option>H1</option>
+      <option>H4</option>
+      <option>D1</option>
+      <option>W1</option>
+    </select>
+    <button id="refresh" type="button">Refresh</button>
+  </div>
+</header>
+
+<div class="cards">
+  <div class="card">
+    <div class="muted">Last Close</div>
+    <div class="value" id="price">—</div>
+  </div>
+  <div class="card">
+    <div class="muted">EMA Trend</div>
+    <div class="value" id="trend">—</div>
+  </div>
+  <div class="card">
+    <div class="muted">New Crossover</div>
+    <div class="value" id="signal">—</div>
+  </div>
+  <div class="card">
+    <div class="muted">Timeframe</div>
+    <div class="value" id="timeframe">M5</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <strong>EMA 20 / EMA 50 Candlestick Chart</strong>
+    <span class="muted" id="updated">Waiting for MT5 bridge...</span>
+  </div>
+  <canvas id="chart" class="chart"></canvas>
+  <div class="legend">
+    <span style="color:#46d8a0">● Bullish candle</span>
+    <span style="color:#ff7d87">● Bearish candle</span>
+    <span style="color:#f6bd60">● EMA 20 Close</span>
+    <span style="color:#58a6ff">● EMA 50 Close</span>
+  </div>
+</div>
+
+<div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+  <div class="card">
+    <div class="muted">EMA 20</div>
+    <div class="value" id="ema20">—</div>
+  </div>
+  <div class="card">
+    <div class="muted">EMA 50</div>
+    <div class="value" id="ema50">—</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h3>Interpretasi</h3>
+  <p id="reason">Menunggu data.</p>
+</div>
+
+<div class="panel">
+  <h3>Historical Crossovers</h3>
+  <p class="muted">Crossover berdasarkan candle selesai. Terbaru di atas.</p>
+  <div id="history" class="history">Menunggu data...</div>
+</div>
+
+<p class="foot">
+  BUY ketika EMA20 memotong EMA50 dari bawah ke atas.
+  SELL ketika EMA20 memotong EMA50 dari atas ke bawah.
+  WAIT jika tidak ada crossover pada candle terakhir.
+  Tidak ada filter EMA200 dan tidak melakukan order otomatis.
+</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = v => v == null || !Number.isFinite(Number(v))
+  ? '—' : Number(v).toLocaleString('en-US',{maximumFractionDigits:3});
+
+let last = [];
+let history = [];
+let requestId = 0;
+
+function ema(values,n) {
+  const k=2/(n+1);
+  let current=null;
+  return values.map(v=>{
+    current=current===null?v:current+k*(v-current);
+    return current;
+  });
+}
+
+function draw(rows) {
+  const canvas=$('chart');
+  const ctx=canvas.getContext('2d');
+  const w=canvas.clientWidth;
+  const h=canvas.clientHeight;
+  const dpr=window.devicePixelRatio||1;
+  if(!w||!h)return;
+
+  canvas.width=Math.round(w*dpr);
+  canvas.height=Math.round(h*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#111d30';
+  ctx.fillRect(0,0,w,h);
+
+  if(!rows.length) {
+    ctx.fillStyle='#91a5c1';
+    ctx.font='13px system-ui';
+    ctx.fillText('No candles received yet',20,40);
+    return;
+  }
+
+  const closes=rows.map(r=>Number(r.c));
+  const e20=ema(closes,20);
+  const e50=ema(closes,50);
+  const count=Math.min(90,rows.length);
+  const start=rows.length-count;
+  const visible=rows.slice(start);
+
+  const values=[
+    ...visible.flatMap(r=>[Number(r.h),Number(r.l)]),
+    ...e20.slice(start),
+    ...e50.slice(start)
+  ].filter(Number.isFinite);
+
+  const high=Math.max(...values);
+  const low=Math.min(...values);
+  const margin=Math.max((high-low)*.05,.01);
+  const top=high+margin;
+  const bottom=low-margin;
+  const span=Math.max(.0001,top-bottom);
+
+  const left=12,right=65,pad=24;
+  const inner=Math.max(1,w-left-right);
+  const usable=Math.max(1,h-2*pad);
+  const step=inner/count;
+  const x=i=>left+(i+.5)*step;
+  const y=v=>pad+(top-v)/span*usable;
+
+  ctx.strokeStyle='#25364d';
+  ctx.fillStyle='#9aabc1';
+  ctx.lineWidth=1;
+  ctx.font='11px system-ui';
+
+  for(let i=0;i<5;i++){
+    const price=bottom+span*i/4;
+    const yy=y(price);
+    ctx.beginPath();
+    ctx.moveTo(left,yy);
+    ctx.lineTo(w-right+5,yy);
+    ctx.stroke();
+    ctx.fillText(price.toFixed(2),w-right+8,yy+3);
+  }
+
+  visible.forEach((c,i)=>{
+    const xx=x(i);
+    const bullish=Number(c.c)>=Number(c.o);
+    ctx.strokeStyle=bullish?'#46d8a0':'#ff7d87';
+    ctx.fillStyle=ctx.strokeStyle;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(xx,y(Number(c.h)));
+    ctx.lineTo(xx,y(Number(c.l)));
+    ctx.stroke();
+
+    const bodyTop=Math.min(y(Number(c.o)),y(Number(c.c)));
+    const bodyHeight=Math.max(1,Math.abs(y(Number(c.o))-y(Number(c.c))));
+    const bodyWidth=Math.max(2,Math.min(12,step*.6));
+    ctx.fillRect(xx-bodyWidth/2,bodyTop,bodyWidth,bodyHeight);
+  });
+
+  function drawLine(series,color) {
+    ctx.beginPath();
+    ctx.strokeStyle=color;
+    ctx.lineWidth=2;
+    series.slice(start).forEach((v,i)=>{
+      if(i===0)ctx.moveTo(x(i),y(v));
+      else ctx.lineTo(x(i),y(v));
+    });
+    ctx.stroke();
+  }
+
+  drawLine(e20,'#f6bd60');
+  drawLine(e50,'#58a6ff');
+
+  // Historical crossover markers
+  const indexByTime=new Map(
+    visible.map((c,i)=>[Number(c.ts),i])
+  );
+
+  ctx.font='bold 10px system-ui';
+  ctx.textAlign='center';
+
+  history.forEach(item=>{
+    const i=indexByTime.get(Number(item.ts));
+    if(i===undefined)return;
+
+    const direction=String(item.direction||'').toUpperCase();
+    if(direction!=='BUY'&&direction!=='SELL')return;
+
+    const bullish=direction==='BUY';
+    const c=visible[i];
+    const xx=x(i);
+    const yy=bullish
+      ?y(Number(c.l))+17
+      :y(Number(c.h))-17;
+
+    const boxW=38,boxH=18;
+    const bx=Math.max(1,Math.min(w-boxW-1,xx-boxW/2));
+    const by=Math.max(1,Math.min(h-boxH-1,yy-boxH/2));
+
+    ctx.fillStyle=bullish?'#155c47':'#75313b';
+    ctx.fillRect(bx,by,boxW,boxH);
+    ctx.fillStyle='#ffffff';
+    ctx.fillText(direction,bx+boxW/2,by+13);
+  });
+
+  ctx.textAlign='start';
+}
+
+function renderHistory(items) {
+  const container=$('history');
+  if(!items.length){
+    container.textContent='Belum ada crossover terdeteksi.';
+    return;
+  }
+
+  container.replaceChildren();
+
+  [...items].reverse().slice(0,30).forEach(item=>{
+    const direction=String(item.direction||'').toUpperCase();
+    const div=document.createElement('div');
+    div.className='history-item';
+
+    const label=document.createElement('strong');
+    label.textContent=direction;
+    label.className=direction==='BUY'?'green':'red';
+
+    const time=document.createElement('span');
+    time.className='muted';
+    const ts=Number(item.ts);
+    time.textContent=Number.isFinite(ts)
+      ?new Date(ts*1000).toLocaleString('id-ID')
+      :'—';
+
+    div.append(label,time);
+    container.appendChild(div);
+  });
+}
+
+async function load() {
+  const tf=$('tf').value;
+  const id=++requestId;
+
+  try {
+    const response=await fetch(
+      '/api/zzl/market?tf='+encodeURIComponent(tf),
+      {cache:'no-store',credentials:'same-origin'}
+    );
+
+    if(response.status===401){
+      window.location.replace('/login');
+      return;
+    }
+    if(!response.ok)throw Error('HTTP '+response.status);
+
+    const data=await response.json();
+    if(id!==requestId)return;
+
+    const a=data.analysis||{};
+    last=Array.isArray(data.candles)?data.candles:[];
+    history=Array.isArray(a.history)?a.history:[];
+
+    $('price').textContent=last.length?fmt(last[last.length-1].c):'—';
+    $('timeframe').textContent=tf;
+    $('ema20').textContent=fmt(a.ema20);
+    $('ema50').textContent=fmt(a.ema50);
+    $('trend').textContent=a.trend||'—';
+    $('signal').textContent=a.signal||'WAIT';
+
+    $('trend').className='value '+(
+      a.trend==='BULLISH'?'green':
+      a.trend==='BEARISH'?'red':'yellow'
+    );
+    $('signal').className='value '+(
+      a.signal==='BUY'?'green':
+      a.signal==='SELL'?'red':'yellow'
+    );
+
+    $('reason').textContent=a.reason||'—';
+    $('updated').textContent=data.last_candle_utc
+      ?'Last completed candle: '+new Date(data.last_candle_utc).toLocaleString('id-ID')
+      :'No data yet';
+
+    renderHistory(history);
+    draw(last);
+  }catch(error){
+    if(id!==requestId)return;
+    $('updated').textContent='Connection error: '+error.message;
+  }
+}
+
+function toggleSidebar(){
+  const open=$('sidebar').classList.toggle('open');
+  $('overlay').hidden=!open;
+  $('menuBtn').textContent=open?'✕':'☰';
+  $('menuBtn').setAttribute('aria-expanded',String(open));
+}
+
+function closeSidebar(){
+  $('sidebar').classList.remove('open');
+  $('overlay').hidden=true;
+  $('menuBtn').textContent='☰';
+  $('menuBtn').setAttribute('aria-expanded','false');
+}
+
+async function logout(){
+  try {
+    const response=await fetch('/api/logout',{
+      method:'POST',credentials:'same-origin'
+    });
+    if(!response.ok)throw Error('HTTP '+response.status);
+    window.location.replace('/login');
+  }catch(error){
+    alert('Logout gagal: '+error.message);
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeSidebar();
+});
+
+$('refresh').onclick=load;
+$('tf').onchange=load;
+window.addEventListener('resize',()=>draw(last));
+load();
+setInterval(load,60000);
+</script>
+</body>
+</html>
