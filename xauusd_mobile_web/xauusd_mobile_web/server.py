@@ -14,8 +14,6 @@ DB = os.getenv('DB_PATH', './market.db')
 TOKEN = os.getenv('INGEST_TOKEN', '')
 USER = os.getenv('DASH_USER', 'admin')
 PASS = os.getenv('DASH_PASSWORD', '')
-BBMA_USER = os.getenv('BBMA_USER', '')
-BBMA_PASS = os.getenv('BBMA_PASSWORD', '')
 FRAMES = {'M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1'}
 BBMA_FRAMES = {'M5', 'M15', 'H1', 'H4', 'D1', 'W1'}
 def db():
@@ -44,14 +42,14 @@ def get_role(request: Request):
         if not hmac.compare_digest(signature, expected):
             return None
         data = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
-        if data.get('exp', 0) <= time.time() or data.get('role') not in ('ema', 'bbma'):
+        if data.get('exp', 0) <= time.time() or data.get('role') != 'all':
             return None
         return data['role']
     except (ValueError, TypeError, KeyError, UnicodeError):
         return None
 
 def require_role(request: Request, role: str):
-    if get_role(request) != role:
+    if get_role(request) != 'all':
         raise HTTPException(401, 'Unauthorized')
 
 class LoginPayload(BaseModel):
@@ -62,20 +60,37 @@ class LoginPayload(BaseModel):
 def login_page(request: Request):
     if get_role(request):
         return RedirectResponse('/', status_code=303)
-    return (Path(__file__).parent / 'templates' / 'login.html').read_text(encoding='utf-8')
 
+    return (
+        Path(__file__).parent / 'templates' / 'login.html'
+    ).read_text(encoding='utf-8')
 @app.post('/login')
 def login(body: LoginPayload):
     if not SESSION_SECRET or len(SESSION_SECRET) < 32:
-        raise HTTPException(503, 'SESSION_SECRET belum disetel dengan aman')
-    ema_ok = bool(USER and PASS) and secrets.compare_digest(body.username, USER) and secrets.compare_digest(body.password, PASS)
-    bbma_ok = bool(BBMA_USER and BBMA_PASS) and secrets.compare_digest(body.username, BBMA_USER) and secrets.compare_digest(body.password, BBMA_PASS)
-    if USER == BBMA_USER and BBMA_USER and PASS == BBMA_PASS:
-        raise HTTPException(503, 'Konfigurasi akun EMA dan BBMA harus berbeda')
-    if not (ema_ok or bbma_ok):
+        raise HTTPException(
+            503,
+            'SESSION_SECRET belum disetel dengan aman'
+        )
+
+    valid = (
+        bool(USER and PASS)
+        and secrets.compare_digest(body.username, USER)
+        and secrets.compare_digest(body.password, PASS)
+    )
+
+    if not valid:
         raise HTTPException(401, 'Username atau password salah')
-    response = JSONResponse({'ok': True, 'dashboard': 'ema' if ema_ok else 'bbma'})
-    response.set_cookie('xau_session', make_session('ema' if ema_ok else 'bbma'), max_age=SESSION_TTL, httponly=True, secure=True, samesite='lax', path='/')
+
+    response = JSONResponse({'ok': True, 'dashboard': 'ema'})
+    response.set_cookie(
+        'xau_session',
+        make_session('all'),
+        max_age=SESSION_TTL,
+        httponly=True,
+        secure=True,
+        samesite='lax',
+        path='/'
+    )
     return response
 
 
@@ -141,17 +156,26 @@ def get_rows(tf):
 def candle_time(rows):
     return datetime.fromtimestamp(rows[-1]['ts'],timezone.utc).isoformat() if rows else None
 
+
 @app.get('/', response_class=HTMLResponse)
 def home(request: Request):
-    role = get_role(request)
-    if not role:
+    if not get_role(request):
         return RedirectResponse('/login', status_code=303)
-    filename = 'index.html' if role == 'ema' else 'bbma.html'
-    return (Path(__file__).parent / 'templates' / filename).read_text(encoding='utf-8')
 
-@app.get('/bbma')
-def bbma_redirect():
-    return RedirectResponse('/', status_code=303)
+    return (
+        Path(__file__).parent / 'templates' / 'index.html'
+    ).read_text(encoding='utf-8')
+
+
+@app.get('/bbma', response_class=HTMLResponse)
+def bbma_page(request: Request):
+    if not get_role(request):
+        return RedirectResponse('/login', status_code=303)
+
+    return (
+        Path(__file__).parent / 'templates' / 'bbma.html'
+    ).read_text(encoding='utf-8')
+
 
 @app.get('/api/market')
 def market(request: Request, tf: str = 'M5'):
