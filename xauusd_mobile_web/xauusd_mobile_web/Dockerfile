@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
 COPY bbma_signals.py .
+COPY zzl_signals.py .
 COPY templates ./templates
 
 ENV PYTHONUNBUFFERED=1
