@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
 from pydantic import BaseModel, Field
 from bbma_signals import analyze_bbma
+from zzl_signals import analyze_zzl
 
 app = FastAPI(title='XAUUSD Analysis', docs_url=None, redoc_url=None)
 
@@ -175,7 +176,14 @@ def bbma_page(request: Request):
     return (
         Path(__file__).parent / 'templates' / 'bbma.html'
     ).read_text(encoding='utf-8')
+@app.get('/zzl', response_class=HTMLResponse)
+def zzl_page(request: Request):
+    if not get_role(request):
+        return RedirectResponse('/login', status_code=303)
 
+    return (
+        Path(__file__).parent / 'templates' / 'zzl.html'
+    ).read_text(encoding='utf-8')
 
 @app.get('/api/market')
 def market(request: Request, tf: str = 'M5'):
@@ -190,63 +198,25 @@ def bbma_market(request: Request, tf: str = 'H1'):
     if tf not in BBMA_FRAMES: raise HTTPException(400, 'Unsupported timeframe')
     rows = get_rows(tf)
     return {'symbol':'XAUUSD','timeframe':tf,'candles':rows,'analysis':analyze_bbma(rows),'last_candle_utc':candle_time(rows),'source':'MT5 bridge' if rows else 'No data yet'}
-def ema(values, period):
-    result = []
-    current = None
-    multiplier = 2 / (period + 1)
 
-    for value in values:
-        current = (
-            value if current is None
-            else current + multiplier * (value - current)
-        )
-        result.append(current)
+@app.post('/api/ingest')
+@app.get('/api/zzl/market')
+def zzl_market(request: Request, tf: str = 'M5'):
+    require_role(request, 'zzl')
 
-    return result
+    if tf not in FRAMES:
+        raise HTTPException(400, 'Unsupported timeframe')
 
-
-def analyze_zzl(rows):
-    if len(rows) < 51:
-        return {
-            "signal": "WAIT",
-            "trend": "INSUFFICIENT_DATA",
-            "reason": "Minimal 51 candle diperlukan.",
-            "history": [],
-        }
-
-    closes = [float(row["c"]) for row in rows]
-    ema20 = ema(closes, 20)
-    ema50 = ema(closes, 50)
-
-    history = []
-
-    for i in range(1, len(rows)):
-        buy = ema20[i - 1] <= ema50[i - 1] and ema20[i] > ema50[i]
-        sell = ema20[i - 1] >= ema50[i - 1] and ema20[i] < ema50[i]
-
-        if buy or sell:
-            history.append({
-                "ts": rows[i]["ts"],
-                "direction": "BUY" if buy else "SELL",
-                "name": "ZZL",
-            })
-
-    signal = "WAIT"
-    reason = "Tidak ada crossover baru pada candle terakhir."
-
-    if history and history[-1]["ts"] == rows[-1]["ts"]:
-        signal = history[-1]["direction"]
-        reason = f"EMA20 crossover EMA50: {signal}"
+    rows = get_rows(tf)
 
     return {
-        "signal": signal,
-        "trend": "BULLISH" if ema20[-1] > ema50[-1] else "BEARISH",
-        "reason": reason,
-        "ema20": round(ema20[-1], 5),
-        "ema50": round(ema50[-1], 5),
-        "history": history,
+        'symbol': 'XAUUSD',
+        'timeframe': tf,
+        'candles': rows,
+        'analysis': analyze_zzl(rows),
+        'last_candle_utc': candle_time(rows),
+        'source': 'MT5 bridge' if rows else 'No data yet'
     }
-@app.post('/api/ingest')
 def ingest(body:Upload, request:Request):
     if not TOKEN or not secrets.compare_digest(request.headers.get('X-Ingest-Token',''),TOKEN):
         raise HTTPException(401,'Unauthorized')
