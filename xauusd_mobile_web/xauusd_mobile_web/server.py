@@ -157,7 +157,12 @@ def get_rows(tf):
     return [dict(zip(['ts','o','h','l','c','volume'],x)) for x in reversed(records)]
 
 def candle_time(rows):
-    return datetime.fromtimestamp(rows[-1]['ts'],timezone.utc).isoformat() if rows else None
+    return (
+        datetime.fromtimestamp(
+            rows[-1]['ts'], timezone.utc
+        ).isoformat()
+        if rows else None
+    )
 
 
 @app.get('/', response_class=HTMLResponse)
