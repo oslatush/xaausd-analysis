@@ -198,8 +198,6 @@ def bbma_market(request: Request, tf: str = 'H1'):
     if tf not in BBMA_FRAMES: raise HTTPException(400, 'Unsupported timeframe')
     rows = get_rows(tf)
     return {'symbol':'XAUUSD','timeframe':tf,'candles':rows,'analysis':analyze_bbma(rows),'last_candle_utc':candle_time(rows),'source':'MT5 bridge' if rows else 'No data yet'}
-
-@app.post('/api/ingest')
 @app.get('/api/zzl/market')
 def zzl_market(request: Request, tf: str = 'M5'):
     require_role(request, 'zzl')
@@ -217,7 +215,10 @@ def zzl_market(request: Request, tf: str = 'M5'):
         'last_candle_utc': candle_time(rows),
         'source': 'MT5 bridge' if rows else 'No data yet'
     }
-def ingest(body:Upload, request:Request):
+
+
+@app.post('/api/ingest')
+def ingest(body: Upload, request: Request):
     if not TOKEN or not secrets.compare_digest(request.headers.get('X-Ingest-Token',''),TOKEN):
         raise HTTPException(401,'Unauthorized')
     if body.symbol.upper()!='XAUUSD': raise HTTPException(400,'Only XAUUSD allowed')
