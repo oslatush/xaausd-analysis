@@ -290,66 +290,6 @@ select,button {
   </div>
 </header>
 
-<!-- TELEGRAM NOTIFICATION ZZL -->
-
-<section class="panel">
-  <div class="row">
-    <h3>🔔 Telegram Notification — ZZL</h3>
-    <span class="muted">XAUUSD Signal Alerts</span>
-  </div>
-
-  <p class="muted">
-    Kirim notifikasi BUY/SELL ketika EMA20 crossover
-    EMA50 pada candle yang telah selesai.
-  </p>
-
-  <label class="telegram-option">
-    <input type="checkbox" id="telegramEnabled">
-    Enable Telegram Alert
-  </label>
-
-  <h3>Timeframes</h3>
-
-  <div class="telegram-options" id="telegramFrames">
-    <label class="telegram-option">
-      <input type="checkbox" value="M1"> M1
-    </label>
-    <label class="telegram-option">
-      <input type="checkbox" value="M5"> M5
-    </label>
-    <label class="telegram-option">
-      <input type="checkbox" value="M15"> M15
-    </label>
-    <label class="telegram-option">
-      <input type="checkbox" value="H1"> H1
-    </label>
-    <label class="telegram-option">
-      <input type="checkbox" value="H4"> H4
-    </label>
-    <label class="telegram-option">
-      <input type="checkbox" value="D1"> D1
-    </label>
-    <label class="telegram-option">
-      <input type="checkbox" value="W1"> W1
-    </label>
-  </div>
-
-  <button
-    id="telegramSave"
-    class="telegram-save"
-    type="button"
-    onclick="saveTelegramSettings()"
-  >
-    Save Telegram Settings
-  </button>
-
-  <div
-    id="telegramStatus"
-    class="telegram-status"
-    role="status"
-  ></div>
-</section>
-
 <div class="cards">
   <div class="card">
     <div class="muted">Last Close</div>
@@ -423,6 +363,66 @@ select,button {
   WAIT jika tidak ada crossover pada candle terakhir.
   Tidak ada filter EMA200 dan tidak melakukan order otomatis.
 </p>
+
+<!-- TELEGRAM NOTIFICATION ZZL -->
+
+<section class="panel">
+  <div class="row">
+    <h3>🔔 Telegram Notification — ZZL</h3>
+    <span class="muted">XAUUSD Signal Alerts</span>
+  </div>
+
+  <p class="muted">
+    Kirim notifikasi BUY/SELL ketika EMA20 crossover
+    EMA50 pada candle yang telah selesai.
+  </p>
+
+  <label class="telegram-option">
+    <input type="checkbox" id="telegramEnabled">
+    Enable Telegram Alert
+  </label>
+
+  <h3>Timeframes</h3>
+
+  <div class="telegram-options" id="telegramFrames">
+    <label class="telegram-option">
+      <input type="checkbox" value="M1"> M1
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="M5"> M5
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="M15"> M15
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="H1"> H1
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="H4"> H4
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="D1"> D1
+    </label>
+    <label class="telegram-option">
+      <input type="checkbox" value="W1"> W1
+    </label>
+  </div>
+
+  <button
+    id="telegramSave"
+    class="telegram-save"
+    type="button"
+    onclick="saveTelegramSettings()"
+  >
+    Save Telegram Settings
+  </button>
+
+  <div
+    id="telegramStatus"
+    class="telegram-status"
+    role="status"
+  ></div>
+</section>
 
 </main>
 
